@@ -285,3 +285,4 @@ node scratch/export_sql.js
   <p><em>© 2026 GEBAT — Tous droits réservés.</em></p>
 </div>"# Gebat_EasyPaie" 
 "# Gebat_EasyPaie" 
+"# Gebat_EasyPaie" 
