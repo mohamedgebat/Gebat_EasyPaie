@@ -284,3 +284,4 @@ node scratch/export_sql.js
   <p><strong>GEBAT EasyPaie v2.1.0 — Conçu avec excellence pour la performance et la rigueur sur chantier.</strong></p>
   <p><em>© 2026 GEBAT — Tous droits réservés.</em></p>
 </div>"# Gebat_EasyPaie" 
+"# Gebat_EasyPaie" 
