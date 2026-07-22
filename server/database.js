@@ -118,6 +118,14 @@ const dbInterface = {
     return { id: res.insertId, ...data, created_at };
   },
 
+  updatePointage: async (id, data) => {
+    await pool.query(
+      `UPDATE pointages SET salaire_brut = ?, site = ? WHERE id = ?`,
+      [Number(data.salaire_brut) || 0, data.site || '', id]
+    );
+    return { id, ...data };
+  },
+
   // Ponctions
   getPonctions: async () => {
     const [rows] = await pool.query(`
@@ -127,6 +135,35 @@ const dbInterface = {
       ORDER BY p.id DESC
     `);
     return rows;
+  },
+
+  // EPI Programmes
+  getEpiProgrammes: async () => {
+    const [rows] = await pool.query(`
+      SELECT e.*, o.nom, o.prenom 
+      FROM epi_programmes e
+      LEFT JOIN ouvriers o ON e.ouvrier_id = o.id
+      ORDER BY e.id DESC
+    `);
+    return rows;
+  },
+
+  getEpiProgrammesByOuvrier: async (ouvrierId) => {
+    const [rows] = await pool.query('SELECT * FROM epi_programmes WHERE ouvrier_id = ?', [ouvrierId]);
+    return rows;
+  },
+
+  addEpiProgramme: async (data) => {
+    const [res] = await pool.query(
+      `INSERT INTO epi_programmes (ouvrier_id, semaines_totales, montant, semaines_exclues) VALUES (?, ?, ?, ?)`,
+      [data.ouvrier_id, Number(data.semaines_totales) || 1, Number(data.montant) || 0, data.semaines_exclues || '']
+    );
+    return { id: res.insertId, ...data };
+  },
+
+  deleteEpiProgramme: async (id) => {
+    await pool.query('DELETE FROM epi_programmes WHERE id = ?', [id]);
+    return true;
   },
 
   getPonctionsByOuvrier: async (ouvrierId) => {

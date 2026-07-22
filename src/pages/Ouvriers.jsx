@@ -9,7 +9,7 @@ import {
 import { formatDate } from '../lib/utils';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 // Helper for generating consistent avatar background colors from strings
 const getAvatarColor = (name = '') => {
@@ -31,6 +31,8 @@ const getAvatarColor = (name = '') => {
 export default function Ouvriers() {
   const navigate = useNavigate();
   const [ouvriers, setOuvriers] = useState([]);
+  const [epiProgrammes, setEpiProgrammes] = useState([]);
+  const [ponctions, setPonctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingOuvrier, setEditingOuvrier] = useState(null);
@@ -62,16 +64,22 @@ export default function Ouvriers() {
   const fetchOuvriers = async () => {
     setLoading(true);
     try {
-      const response = await apiFetch('/api/ouvriers');
-      if (response.ok) {
-        const data = await response.json();
-        setOuvriers(data);
-      } else {
-        // Fallback or empty if offline
-        setOuvriers([]);
-      }
+      const [resOuv, resEpi, resPonc] = await Promise.all([
+        apiFetch('/api/ouvriers'),
+        apiFetch('/api/epi-programmes'),
+        apiFetch('/api/ponctions')
+      ]);
+      
+      if (resOuv.ok) setOuvriers(await resOuv.json());
+      else setOuvriers([]);
+
+      if (resEpi.ok) setEpiProgrammes(await resEpi.json());
+      else setEpiProgrammes([]);
+
+      if (resPonc.ok) setPonctions(await resPonc.json());
+      else setPonctions([]);
     } catch (error) {
-      console.error('Error fetching ouvriers:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -143,7 +151,7 @@ export default function Ouvriers() {
     doc.setFillColor(244, 189, 11);
     doc.rect(0, 42, pageW, 3, 'F');
     try {
-      doc.addImage(gebatLogo, 'JPEG', pageW - 46, 2, 34, 34);
+      doc.addImage(gebatLogo, 'PNG', pageW - 46, 2, 34, 34);
     } catch (e) {}
     doc.setFillColor(244, 189, 11);
     doc.rect(pageW - 50, 4, 1, 30, 'F');
@@ -160,18 +168,33 @@ export default function Ouvriers() {
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR')} - Effectif : ${filteredOuvriers.length}`, 14, 37);
     doc.setTextColor(0, 0, 0);
 
-    const rows = filteredOuvriers.map((o) => [
-      o.matricule || '-',
-      o.nom,
-      o.prenom || '-',
-      o.telephone || '-',
-      o.site || '-',
-      o.qualification || '-',
-      o.operateur || '-',
-      o.numero_mobile_money || '-',
-      o.date_entree ? formatDate(o.date_entree) : '-',
-      o.statut?.toUpperCase() || '-'
-    ]);
+    const rows = filteredOuvriers.map((o) => {
+      let epiStatusStr = "Aucun";
+      if (o.statut === 'parti' && o.epi_settled) {
+        epiStatusStr = "Remboursé";
+      } else {
+        const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(o.id));
+        if (prog) {
+          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
+          const total = Number(prog.semaines_totales);
+          epiStatusStr = ponctionsReliees >= total ? "Terminé" : `${ponctionsReliees}/${total}`;
+        }
+      }
+
+      return [
+        o.matricule || '-',
+        o.nom,
+        o.prenom || '-',
+        o.telephone || '-',
+        o.site || '-',
+        o.qualification || '-',
+        o.operateur || '-',
+        o.numero_mobile_money || '-',
+        o.date_entree ? formatDate(o.date_entree) : '-',
+        epiStatusStr,
+        o.statut?.toUpperCase() || '-'
+      ];
+    });
 
     autoTable(doc, {
       headStyles: {
@@ -179,22 +202,23 @@ export default function Ouvriers() {
         textColor: 255,
         fontStyle: 'bold',
         halign: 'center',
-        fontSize: 8.5,
+        fontSize: 7.5,
       },
       alternateRowStyles: { fillColor: [240, 245, 255] },
-      bodyStyles: { fontSize: 8, cellPadding: 2.5 },
+      bodyStyles: { fontSize: 7.5, cellPadding: 2.5 },
       rowPageBreak: 'auto',
       margin: { top: 52, left: 14, right: 14 },
       startY: 52,
       head: [[
         'Matricule', 'Nom', 'Prénom', 'Téléphone', 'Site / Chantier',
-        'Qualification', 'Opérateur', 'Mobile Money', 'Date Entrée', 'Statut'
+        'Qualification', 'Opérateur', 'Mobile Money', 'Date Entrée', 'Prog. EPI', 'Statut'
       ]],
       body: rows,
       columnStyles: {
         0: { halign: 'center' },
         8: { halign: 'center' },
-        9: { halign: 'center' }
+        9: { halign: 'center', fontStyle: 'bold' },
+        10: { halign: 'center' }
       },
     });
 
@@ -242,16 +266,21 @@ export default function Ouvriers() {
 
   // Stats
   const stats = useMemo(() => {
-    const actifs = ouvriers.filter(o => o.statut === 'actif').length;
-    const partis = ouvriers.filter(o => o.statut === 'parti').length;
+    const actifs = filteredOuvriers.filter(o => o.statut === 'actif').length;
+    const partis = filteredOuvriers.filter(o => o.statut === 'parti').length;
+    
+    // Compter les sites uniques et qualifications uniques dans les résultats filtrés
+    const uniqueSites = new Set(filteredOuvriers.map(o => o.site).filter(Boolean));
+    const uniqueQuals = new Set(filteredOuvriers.map(o => o.qualification).filter(Boolean));
+
     return {
-      total: ouvriers.length,
+      total: filteredOuvriers.length,
       actifs,
       partis,
-      sitesCount: sitesList.length,
-      qualsCount: qualificationsList.length
+      sitesCount: uniqueSites.size,
+      qualsCount: uniqueQuals.size
     };
-  }, [ouvriers, sitesList, qualificationsList]);
+  }, [filteredOuvriers]);
 
   const resetFilters = () => {
     setSearchTerm('');
@@ -550,6 +579,7 @@ export default function Ouvriers() {
                   <th className="py-4 px-4">Chantier (Site)</th>
                   <th className="py-4 px-3">Téléphone</th>
                   <th className="py-4 px-4">Coordonnées Mobile Money</th>
+                  <th className="py-4 px-3 text-center">Prog. EPI</th>
                   <th className="py-4 px-3 text-center">Statut</th>
                   <th className="py-4 px-4 text-right">Actions</th>
                 </tr>
@@ -646,6 +676,34 @@ export default function Ouvriers() {
                       </td>
 
                       <td className="py-3.5 px-3 text-center">
+                        {(() => {
+                          if (ouvrier.statut === 'parti' && ouvrier.epi_settled) {
+                            return (
+                              <span className="inline-flex items-center gap-1 bg-purple-50 text-purple-600 border border-purple-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap">
+                                <CheckCircle2 size={12} /> Remboursé
+                              </span>
+                            );
+                          }
+                          const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(ouvrier.id));
+                          if (!prog) return <span className="text-xs text-gray-300 font-medium italic">Aucun</span>;
+                          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
+                          const total = Number(prog.semaines_totales);
+                          if (ponctionsReliees >= total) {
+                            return (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap">
+                                <CheckCircle2 size={12} /> Terminé
+                              </span>
+                            );
+                          }
+                          return (
+                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap">
+                              <RefreshCw size={10} className="animate-spin-slow" /> {ponctionsReliees}/{total}
+                            </span>
+                          );
+                        })()}
+                      </td>
+
+                      <td className="py-3.5 px-3 text-center">
                         <span
                           className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold ${
                             ouvrier.statut === 'actif'
@@ -691,7 +749,7 @@ export default function Ouvriers() {
           </div>
           <div className="bg-gray-50 px-6 py-3 border-t border-gray-100 text-xs font-semibold text-gray-500 flex items-center justify-between">
             <span>Affichage de {filteredOuvriers.length} sur {ouvriers.length} ouvriers</span>
-            <span className="text-indigo-600 font-bold">GEBAT & NOURIVOIRE</span>
+            <span className="text-indigo-600 font-bold">GEBAT</span>
           </div>
         </div>
       ) : (

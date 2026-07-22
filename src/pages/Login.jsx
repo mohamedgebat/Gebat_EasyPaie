@@ -7,7 +7,7 @@ import {
   Mail, KeyRound, RefreshCw, X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function Login() {
   const [username, setUsername] = useState('');
@@ -182,11 +182,11 @@ export default function Login() {
       <div className="hidden lg:flex lg:w-7/12 p-12 xl:p-16 flex-col justify-between relative z-10 border-r border-white/10">
         {/* Top Brand & Logo */}
         <div className="flex items-center gap-4 animate-fade-in">
-          <div className="bg-white p-3 rounded-2xl shadow-2xl border border-white/20 transform hover:scale-105 transition-transform duration-300">
+          <div className="bg-transparent transform hover:scale-105 transition-transform duration-300">
             <img 
               src={gebatLogo} 
               alt="GEBAT Logo" 
-              className="h-16 w-auto object-contain"
+              className="h-24 w-auto object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.7)]"
               onError={(e) => {
                 e.target.style.display = 'none';
               }}
@@ -266,11 +266,11 @@ export default function Login() {
           
           {/* Mobile Header (Shown only on small screens) */}
           <div className="text-center mb-8 lg:hidden animate-fade-in">
-            <div className="inline-block bg-white p-3.5 rounded-2xl shadow-xl mb-4">
+            <div className="inline-block bg-transparent mb-4">
               <img 
                 src={gebatLogo} 
                 alt="GEBAT Logo" 
-                className="h-16 w-auto mx-auto"
+                className="h-20 w-auto mx-auto drop-shadow-[0_2px_12px_rgba(255,255,255,0.7)]"
                 onError={(e) => {
                   e.target.style.display = 'none';
                 }}

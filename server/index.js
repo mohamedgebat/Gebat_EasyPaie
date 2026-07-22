@@ -62,6 +62,34 @@ app.delete('/api/ouvriers/:id', async (req, res) => {
   }
 });
 
+// EPI Fournis routes
+app.get('/api/epi-fournis', async (req, res) => {
+  try {
+    const result = await db.getEpiFournis();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/epi-fournis', async (req, res) => {
+  try {
+    const result = await db.addEpiFourni(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/epi-fournis/:id', async (req, res) => {
+  try {
+    const result = await db.deleteEpiFourni(parseInt(req.params.id));
+    res.json({ success: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Pointages routes
 app.get('/api/pointages', async (req, res) => {
   try {
@@ -85,6 +113,43 @@ app.post('/api/pointages', async (req, res) => {
       site: site || ''
     });
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/pointages/:id', async (req, res) => {
+  try {
+    const result = await db.updatePointage(parseInt(req.params.id), req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// EPI Programmes routes
+app.get('/api/epi-programmes', async (req, res) => {
+  try {
+    const result = await db.getEpiProgrammes();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/epi-programmes', async (req, res) => {
+  try {
+    const result = await db.addEpiProgramme(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/epi-programmes/:id', async (req, res) => {
+  try {
+    await db.deleteEpiProgramme(parseInt(req.params.id));
+    res.json({ message: 'Programme EPI supprimé' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function Loyers() {
   const [loyers, setLoyers] = useState([]);

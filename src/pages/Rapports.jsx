@@ -5,7 +5,7 @@ import {
   Filter, RefreshCw, Layers, CheckCircle2, AlertCircle, DollarSign, Users 
 } from 'lucide-react';
 import { formatCurrency, formatCurrencySigned, formatDate, formatWeekLabel, getWeekDateRange } from '../lib/utils';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -135,7 +135,7 @@ export default function Rapports() {
     doc.setFillColor(244, 189, 11);
     doc.rect(0, 42, pageW, 3, 'F');
     try {
-      doc.addImage(gebatLogo, 'JPEG', pageW - 46, 2, 34, 34);
+      doc.addImage(gebatLogo, 'PNG', pageW - 46, 2, 34, 34);
     } catch (e) {}
     doc.setFillColor(244, 189, 11);
     doc.rect(pageW - 50, 4, 1, 30, 'F');

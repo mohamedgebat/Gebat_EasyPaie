@@ -6,21 +6,20 @@ import {
   History, BarChart3, Settings, Menu, LogOut, Layers,
   ChevronLeft, ChevronRight, Sparkles, ShieldCheck, UserCheck
 } from 'lucide-react';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 const allNavGroups = [
   {
     category: 'PILOTAGE & FLUX',
     items: [
       { path: '/', label: 'Tableau de bord', icon: Home, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier', 'Auditeur'] },
-      { path: '/conversion', label: 'Conversion Fichiers', icon: Layers, roles: ['Administrateur', 'Contrôleur Chantier'] },
-      { path: '/import-pointage', label: 'Import Pointage', icon: FileText, roles: ['Administrateur', 'Contrôleur Chantier'] },
+      { path: '/ouvriers', label: 'Gestion des Ouvriers', icon: Users, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
+      { path: '/conversion', label: 'Pointage & Édition', icon: Layers, roles: ['Administrateur', 'Contrôleur Chantier'] },
     ]
   },
   {
     category: 'MAIN-D\'ŒUVRE & RETENUES',
     items: [
-      { path: '/ouvriers', label: 'Gestion des Ouvriers', icon: Users, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
       { path: '/ponctions', label: 'Ponctions EPI', icon: Shield, roles: ['Administrateur', 'Contrôleur Chantier'] },
       { path: '/loyers', label: 'Loyers Hébergement', icon: Building2, roles: ['Administrateur', 'Contrôleur Chantier'] },
     ]
@@ -76,12 +75,12 @@ export default function Layout({ children }) {
         {/* Header / Logo Brand Area */}
         <div className={`flex flex-col items-center justify-center pt-6 pb-5 flex-shrink-0 border-b border-white/10 transition-all ${isOpen ? 'px-5' : 'px-2'}`}>
           <div className="flex items-center gap-3.5 w-full justify-center">
-            <div className="p-1.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner flex-shrink-0 transition-transform hover:scale-105">
+            <div className="p-1.5 bg-transparent flex-shrink-0 transition-transform hover:scale-105">
               <img
                 src={gebatLogo}
                 alt="Logo GEBAT"
-                className="rounded-xl object-cover transition-all duration-300 shadow-md"
-                style={{ width: isOpen ? '46px' : '38px', height: isOpen ? '46px' : '38px' }}
+                className="object-contain transition-all duration-300 drop-shadow-[0_2px_10px_rgba(255,255,255,0.5)]"
+                style={{ width: isOpen ? '56px' : '44px', height: isOpen ? '56px' : '44px' }}
               />
             </div>
 
@@ -207,7 +206,7 @@ export default function Layout({ children }) {
           </button>
 
           <div className={`text-center text-[10px] font-bold mt-2.5 text-slate-500 transition-all duration-300 ${isOpen ? 'opacity-100 block' : 'opacity-0 hidden h-0'}`}>
-            © 2026 GEBAT &amp; NOURIVOIRE
+            © 2026 GEBAT
           </div>
         </div>
       </aside>

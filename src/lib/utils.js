@@ -7,14 +7,14 @@ export function cn(...inputs) {
 
 export function formatCurrency(amount) {
   const num = Math.round(Number(amount) || 0);
-  return num.toLocaleString('fr-FR') + ' F CFA';
+  return num.toLocaleString('fr-FR', { useGrouping: true }).replace(/\s/g, ' ').replace(/\u202F/g, ' ') + ' F CFA';
 }
 
 export function formatCurrencySigned(amount) {
   const num = Math.round(Number(amount) || 0);
   if (num === 0) return '-';
-  const sign = num > 0 ? '+' : '';
-  return sign + num.toLocaleString('fr-FR') + ' F CFA';
+  const formatted = Math.abs(num).toLocaleString('fr-FR', { useGrouping: true }).replace(/\s/g, ' ').replace(/\u202F/g, ' ') + ' F CFA';
+  return num > 0 ? `+ ${formatted}` : `- ${formatted}`;
 }
 
 export function formatDate(date) {

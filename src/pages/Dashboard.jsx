@@ -8,7 +8,7 @@ import {
   MapPin, ArrowUpRight, DollarSign, ShieldCheck, Filter, Search, X
 } from 'lucide-react';
 import { formatCurrency, formatDate, formatWeekLabel } from '../lib/utils';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -601,8 +601,8 @@ export default function Dashboard() {
         
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-5">
-            <div className="hidden sm:block p-3.5 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-inner">
-              <img src={gebatLogo} alt="GEBAT" className="w-14 h-14 object-cover rounded-xl shadow-md" />
+            <div className="hidden sm:block p-3.5 bg-transparent">
+              <img src={gebatLogo} alt="GEBAT" className="w-20 h-20 object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.6)]" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-3 mb-2.5">

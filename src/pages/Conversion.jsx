@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
+import { apiFetch } from '../lib/api';
 import { 
   Upload, Download, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, 
   Users, Calendar, DollarSign, Clock, Settings, Filter, Search, 
@@ -22,6 +23,8 @@ export default function Conversion() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [manualOverrides, setManualOverrides] = useState({});
   
   // Settings & Legends
   const [dailyWage, setDailyWage] = useState(7500);
@@ -408,7 +411,7 @@ export default function Conversion() {
       let totalOTHours = 0;
       let totalOTAmount = 0;
 
-      const newDaily = w.dailyAttendance.map(day => {
+      const newDaily = w.dailyAttendance.map((day, d) => {
         const dayNameUpper = String(day.dayName || '').trim().toUpperCase();
         const daySpecificEntry = workerCustomRates.find(c => {
           const cDate = String(c.date || 'TOUS').trim().toUpperCase();
@@ -422,8 +425,19 @@ export default function Conversion() {
           ? Number(daySpecificEntry.salaire)
           : weeklyBaseRate;
 
-        const mtJournalier = day.jrTravaille * dayBaseRate;
-        totalWorkDays += day.jrTravaille;
+        let jrTravailleRaw = day.jrTravaille;
+        if (manualOverrides[w.id]?.daily?.[d]?.jrTravaille !== undefined) {
+          jrTravailleRaw = manualOverrides[w.id].daily[d].jrTravaille;
+        }
+        let jrTravaille = jrTravailleRaw === '' ? '' : Number(jrTravailleRaw);
+
+        let mtJournalierRaw = jrTravaille === '' ? 0 : (jrTravaille * dayBaseRate);
+        if (manualOverrides[w.id]?.daily?.[d]?.mtJournalier !== undefined) {
+          mtJournalierRaw = manualOverrides[w.id].daily[d].mtJournalier;
+        }
+        let mtJournalier = mtJournalierRaw === '' ? '' : Number(mtJournalierRaw);
+
+        totalWorkDays += (jrTravaille === '' ? 0 : jrTravaille);
 
         const hourlyBase = dayBaseRate / (Number(dailyHours) || 8);
         const otRate15 = hourlyBase * 1.15; // Formule: (Salaire du jour / nombre d'heures) * 1.15 (majoration +15%)
@@ -459,6 +473,7 @@ export default function Conversion() {
 
         return {
           ...day,
+          jrTravaille,
           mtJournalier,
           dayBaseRate,
           otHours: otHoursToday,
@@ -466,26 +481,42 @@ export default function Conversion() {
         };
       });
 
-      const totalBasePay = newDaily.reduce((sum, d) => sum + (d.mtJournalier || 0), 0);
+      const totalBasePay = newDaily.reduce((sum, d) => sum + (d.mtJournalier === '' ? 0 : Number(d.mtJournalier) || 0), 0);
       const hasDailyCustomRate = workerCustomRates.some(c => c.date && c.date.toUpperCase() !== 'TOUS' && c.date.toUpperCase() !== 'ALL');
+
+      // Application des modifications manuelles (overrides)
+      let finalWorkDays = totalWorkDays;
+      let finalBaseRate = weeklyBaseRate;
+
+      if (manualOverrides[w.id]) {
+        if (manualOverrides[w.id].totalWorkDays !== undefined) {
+          finalWorkDays = manualOverrides[w.id].totalWorkDays === '' ? '' : Number(manualOverrides[w.id].totalWorkDays);
+        }
+        if (manualOverrides[w.id].baseRate !== undefined) {
+          finalBaseRate = manualOverrides[w.id].baseRate === '' ? '' : Number(manualOverrides[w.id].baseRate);
+        }
+      }
+
+      const finalTotalBasePay = (finalWorkDays === '' ? 0 : finalWorkDays) * (finalBaseRate === '' ? 0 : finalBaseRate);
+      const finalNetPay = finalTotalBasePay + totalOTAmount;
 
       return {
         ...w,
         dept: effectiveDept,
-        baseRate: weeklyBaseRate,
-        hasCustomRate: workerCustomRates.length > 0,
+        baseRate: finalBaseRate,
+        hasCustomRate: workerCustomRates.length > 0 || !!manualOverrides[w.id],
         hasDailyCustomRate,
         customSite: anyCustomEntry?.site || 'TOUS',
         customDept: anyCustomEntry?.dept || 'TOUS',
         dailyAttendance: newDaily,
-        totalWorkDays,
-        totalBasePay,
+        totalWorkDays: finalWorkDays,
+        totalBasePay: finalTotalBasePay,
         totalOTHours,
         totalOTAmount,
-        netPay: totalBasePay + totalOTAmount
+        netPay: finalNetPay
       };
     }).filter(w => w.netPay > 0);
-  }, [workers, dailyWage, dailyHours, otThresholdHours, otCalculationMode, customRates]);
+  }, [workers, dailyWage, dailyHours, otThresholdHours, otCalculationMode, customRates, manualOverrides]);
 
   // Group workers by department
   const departmentGroups = useMemo(() => {
@@ -537,6 +568,135 @@ export default function Conversion() {
       grandTotalPay: totalBase + totalOTPay
     };
   }, [updatedWorkers]);
+
+  const handleManualOverride = (workerId, field, value, dayIndex = null) => {
+    setManualOverrides(prev => {
+      const workerState = prev[workerId] || {};
+      if (dayIndex !== null) {
+        const dailyState = workerState.daily || {};
+        const dayState = dailyState[dayIndex] || {};
+        return {
+          ...prev,
+          [workerId]: {
+            ...workerState,
+            daily: {
+              ...dailyState,
+              [dayIndex]: {
+                ...dayState,
+                [field]: value
+              }
+            }
+          }
+        };
+      }
+      return {
+        ...prev,
+        [workerId]: {
+          ...workerState,
+          [field]: value
+        }
+      };
+    });
+  };
+
+  const handleSaveToDatabase = async () => {
+    if (updatedWorkers.length === 0) {
+      alert('Aucune donnée à enregistrer.');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const workerResponse = await apiFetch('/api/ouvriers');
+      let dbWorkers = await workerResponse.json();
+      
+      const pointagesResponse = await apiFetch('/api/pointages');
+      let dbPointages = await pointagesResponse.json();
+      
+      const importedWorkerIds = [];
+      
+      for (const w of updatedWorkers) {
+        const workerName = w.name;
+        let worker = dbWorkers.find(dbw => 
+          dbw.nom.toLowerCase() === workerName.toLowerCase() || 
+          `${dbw.nom} ${dbw.prenom}`.toLowerCase().trim() === workerName.toLowerCase() ||
+          dbw.matricule === workerName
+        );
+
+        if (!worker) {
+          const newWorkerRes = await apiFetch('/api/ouvriers', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              matricule: `OUV-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}`,
+              nom: workerName,
+              prenom: '',
+              telephone: '',
+              site: siteName || 'SONGON',
+              qualification: w.dept || 'AIDE CHANTIER',
+              operateur: 'Wave',
+              numero_mobile_money: '',
+              date_entree: new Date().toISOString().split('T')[0],
+              statut: 'actif'
+            })
+          });
+          worker = await newWorkerRes.json();
+          if (worker && worker.id) dbWorkers.push(worker);
+        }
+
+        if (worker && worker.id) {
+          importedWorkerIds.push(worker.id);
+          
+          const existingPointage = dbPointages.find(p => p.ouvrier_id === worker.id && p.semaine === (dateRangeStr || ''));
+          
+          if (existingPointage) {
+            await apiFetch(`/api/pointages/${existingPointage.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                salaire_brut: Number(w.netPay) || 0,
+                site: siteName || worker.site || 'SONGON'
+              }),
+            });
+          } else {
+            await apiFetch('/api/pointages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ouvrier_id: worker.id,
+                date: new Date().toISOString().split('T')[0],
+                date_debut: null,
+                date_fin: null,
+                semaine: dateRangeStr || '',
+                salaire_brut: Number(w.netPay) || 0,
+                site: siteName || worker.site || 'SONGON'
+              }),
+            });
+          }
+        }
+      }
+
+      try {
+        localStorage.setItem('gebat_last_import_meta', JSON.stringify({
+          site: siteName || 'SONGON',
+          semaine: dateRangeStr || '',
+          dateDebut: '',
+          dateFin: '',
+          label: dateRangeStr || '',
+          workerIds: importedWorkerIds,
+          timestamp: Date.now()
+        }));
+        window.dispatchEvent(new Event('gebat_import_updated'));
+      } catch (e) {}
+
+      alert('Enregistrement réussi ! Toutes les fiches ont été enregistrées en base.');
+    } catch (error) {
+      console.error('Error saving:', error);
+      alert('Erreur lors de l\'enregistrement en base de données.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // EXCEL EXPORT (100% compliant with target file structure)
   const exportToTargetExcel = () => {
@@ -910,6 +1070,14 @@ export default function Conversion() {
               <Download size={20} className="animate-bounce" />
               Télécharger Fichier Net (Excel)
             </button>
+            <button
+              onClick={handleSaveToDatabase}
+              disabled={isSaving}
+              className={`px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2.5 transform active:scale-95 transition-all duration-200 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
+              {isSaving ? 'Enregistrement...' : 'Enregistrer dans la Base'}
+            </button>
           </div>
         )}
       </div>
@@ -1243,7 +1411,7 @@ export default function Conversion() {
                 }`}
               >
                 <Users size={18} />
-                Détail par Département
+                Édition & Modifications
               </button>
 
               <button
@@ -1665,7 +1833,7 @@ export default function Conversion() {
                           {dayName.toUpperCase()}
                         </th>
                       ))}
-                      <th colSpan={2} className="py-3 px-3 text-center border-r border-purple-200 bg-purple-200/60">TOTAL BASE</th>
+                      <th colSpan={3} className="py-3 px-3 text-center border-r border-purple-200 bg-purple-200/60">TOTAL BASE</th>
                       <th className="py-3 px-4 text-right bg-emerald-600 text-white font-extrabold">NET A PAYER</th>
                     </tr>
                     <tr className="bg-purple-50/90 text-purple-900 font-semibold border-b-2 border-purple-300 text-[11px]">
@@ -1678,6 +1846,7 @@ export default function Conversion() {
                         </Fragment>
                       ))}
                       <th className="py-1.5 px-2 text-center border-r border-purple-200 font-semibold bg-purple-100/50">JRS</th>
+                      <th className="py-1.5 px-3 text-right border-r border-purple-200 font-semibold bg-purple-100/50">TAUX/JR</th>
                       <th className="py-1.5 px-3 text-right border-r border-purple-200 font-semibold bg-purple-100/50">MONTANT</th>
                       <th className="py-1.5 px-4 bg-emerald-500 text-white"></th>
                     </tr>
@@ -1706,18 +1875,49 @@ export default function Conversion() {
                           const mt = day ? day.mtJournalier : 0;
                           return (
                             <Fragment key={d}>
-                              <td className="py-3 px-2 text-center font-medium text-gray-700 border-r border-gray-100">
-                                {jr > 0 ? jr : '-'}
+                              <td className="py-2 px-1 text-center bg-white border-r border-gray-100">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="0.5"
+                                  className="w-10 px-0.5 py-0.5 text-center text-[10px] font-bold text-gray-700 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 shadow-inner"
+                                  value={jr}
+                                  onChange={(e) => handleManualOverride(w.id, 'jrTravaille', e.target.value, d)}
+                                />
                               </td>
-                              <td className="py-3 px-2 text-right font-semibold text-gray-900 border-r border-gray-100">
-                                {mt > 0 ? mt.toLocaleString() : '-'}
+                              <td className="py-2 px-1 text-right bg-white border-r border-gray-100">
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="500"
+                                  className="w-14 px-0.5 py-0.5 text-right text-[10px] font-bold text-gray-900 border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 shadow-inner"
+                                  value={mt}
+                                  onChange={(e) => handleManualOverride(w.id, 'mtJournalier', e.target.value, d)}
+                                />
                               </td>
                             </Fragment>
                           );
                         })}
 
-                        <td className="py-3 px-2 text-center font-bold text-purple-950 bg-purple-50/50 border-r border-gray-100">
-                          {w.totalWorkDays}
+                        <td className="py-2 px-2 text-center bg-purple-50/50 border-r border-gray-100">
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.5"
+                            className="w-14 px-1 py-1 text-center text-xs font-bold text-purple-950 bg-white border border-purple-300 rounded focus:ring-1 focus:ring-purple-500 shadow-inner"
+                            value={w.totalWorkDays}
+                            onChange={(e) => handleManualOverride(w.id, 'totalWorkDays', e.target.value)}
+                          />
+                        </td>
+                        <td className="py-2 px-2 text-right bg-purple-50/50 border-r border-gray-100">
+                          <input
+                            type="number"
+                            min="0"
+                            step="500"
+                            className="w-20 px-1 py-1 text-right text-xs font-bold text-purple-950 bg-white border border-purple-300 rounded focus:ring-1 focus:ring-purple-500 shadow-inner"
+                            value={w.baseRate}
+                            onChange={(e) => handleManualOverride(w.id, 'baseRate', e.target.value)}
+                          />
                         </td>
                         <td className="py-3 px-3 text-right font-extrabold text-purple-950 bg-purple-50/50 border-r border-gray-100">
                           {w.totalBasePay.toLocaleString()}

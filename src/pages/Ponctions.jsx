@@ -10,7 +10,7 @@ import { formatCurrency, formatDate } from '../lib/utils';
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function Ponctions() {
   const [ponctions, setPonctions] = useState([]);
@@ -19,6 +19,8 @@ export default function Ponctions() {
   const [workerPonctions, setWorkerPonctions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showEpiFournisModal, setShowEpiFournisModal] = useState(false);
+  const [epiFournis, setEpiFournis] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [siteFilter, setSiteFilter] = useState('ALL');
   const [cautionStatusFilter, setCautionStatusFilter] = useState('non_soldes');
@@ -83,9 +85,10 @@ export default function Ponctions() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [ponctionsRes, ouvriersRes] = await Promise.all([
+      const [ponctionsRes, ouvriersRes, epiFournisRes] = await Promise.all([
         apiFetch('/api/ponctions'),
         apiFetch('/api/ouvriers'),
+        apiFetch('/api/epi-fournis').catch(() => null),
       ]);
       if (ponctionsRes.ok && ouvriersRes.ok) {
         setPonctions(await ponctionsRes.json());
@@ -93,6 +96,12 @@ export default function Ponctions() {
       } else {
         setPonctions([]);
         setOuvriers([]);
+      }
+      
+      if (epiFournisRes && epiFournisRes.ok) {
+        setEpiFournis(await epiFournisRes.json());
+      } else {
+        setEpiFournis([]);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -445,6 +454,7 @@ export default function Ponctions() {
   const isWorkerAlreadyDeparted = Boolean(selectedWorkerData && selectedWorkerData.statut === 'parti' && Boolean(selectedWorkerData.epi_departure_option || selectedWorkerData.date_depart || selectedWorkerData.epi_departure_date));
   const isDepartedLocked = isWorkerAlreadyDeparted;
   const epiResult = computeEpiResult(workerStatus === 'parti' ? epiDepartureOption : '', regularWorkerTotal, epiLostAmount, workerEpiLimit);
+  
   const handleExportExcel = () => {
     try {
       const isJournal = viewMode === 'journal';
@@ -676,6 +686,91 @@ export default function Ponctions() {
     }
   };
 
+  const exportEpiFournisPDF = () => {
+    try {
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      
+      doc.setFontSize(20);
+      doc.setTextColor(30, 58, 138); // indigo-900
+      doc.text("GEBAT - Registre des Équipements EPI Fournis", pageWidth / 2, 20, { align: 'center' });
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text(`Date d'édition : ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, 28, { align: 'center' });
+      
+      const tableColumn = ["Date de remise", "Ouvrier", "Équipement", "Prix Unitaire"];
+      const tableRows = [];
+      
+      let total = 0;
+      epiFournis.forEach(item => {
+        const worker = ouvriers.find(o => o.id === item.ouvrier_id);
+        const workerName = worker ? `${worker.nom} ${worker.prenom || ''}` : `Ouvrier #${item.ouvrier_id}`;
+        const rowData = [
+          formatDate(item.date_remise),
+          workerName,
+          item.equipement,
+          formatCurrency(item.prix)
+        ];
+        tableRows.push(rowData);
+        total += Number(item.prix);
+      });
+      
+      autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 35,
+        theme: 'striped',
+        headStyles: { fillColor: [147, 51, 234], textColor: [255, 255, 255] },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          3: { halign: 'right' }
+        }
+      });
+      
+      const finalY = doc.lastAutoTable.finalY || 35;
+      doc.setFontSize(12);
+      doc.setTextColor(147, 51, 234);
+      doc.text(`Total Global : ${formatCurrency(total)}`, pageWidth - 14, finalY + 10, { align: 'right' });
+      
+      doc.save(`EPI_Fournis_GEBAT_${new Date().toISOString().split('T')[0]}.pdf`);
+    } catch (error) {
+      console.error('Erreur lors de l\'export PDF:', error);
+      alert('Une erreur est survenue lors de la génération du PDF.');
+    }
+  };
+
+  const exportEpiFournisExcel = () => {
+    try {
+      const dataToExport = epiFournis.map(item => {
+        const worker = ouvriers.find(o => o.id === item.ouvrier_id);
+        const workerName = worker ? `${worker.nom} ${worker.prenom || ''}` : `Ouvrier #${item.ouvrier_id}`;
+        return {
+          'Date de remise': formatDate(item.date_remise),
+          'Ouvrier': workerName,
+          'Équipement': item.equipement,
+          'Prix Unitaire': Number(item.prix)
+        };
+      });
+      
+      const total = epiFournis.reduce((sum, item) => sum + Number(item.prix), 0);
+      dataToExport.push({
+        'Date de remise': '',
+        'Ouvrier': '',
+        'Équipement': 'TOTAL',
+        'Prix Unitaire': total
+      });
+      
+      const ws = XLSX.utils.json_to_sheet(dataToExport);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "EPI Fournis");
+      XLSX.writeFile(wb, `EPI_Fournis_GEBAT_${new Date().toISOString().split('T')[0]}.xlsx`);
+    } catch (error) {
+      console.error('Erreur lors de l\'export Excel:', error);
+      alert('Une erreur est survenue lors de la génération du fichier Excel.');
+    }
+  };
+
   return (
     <div className="space-y-8 pb-16">
       {/* Premium Hero Banner */}
@@ -724,6 +819,12 @@ export default function Ponctions() {
               title="Rafraîchir"
             >
               <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+            </button>
+            <button
+              onClick={() => setShowEpiFournisModal(true)}
+              className="px-4 py-2 bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold rounded-xl text-sm shadow-sm transition-all flex items-center gap-2"
+            >
+              <HardHat size={18} /> Liste Équipements
             </button>
             <button
               onClick={() => {
@@ -1753,6 +1854,105 @@ export default function Ponctions() {
           </div>
         </div>
       )}
+
+      {/* Modal: Liste de tous les Équipements Fournis */}
+      {showEpiFournisModal && (
+        <div className="fixed inset-0 z-50 flex justify-center items-center p-4 sm:p-6 bg-gray-900/40 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-slideUp">
+            
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between bg-purple-50/50 flex-wrap gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                  <HardHat size={20} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-gray-900">Registre des Équipements Fournis</h3>
+                  <p className="text-sm text-gray-500 font-medium">Inventaire global des EPI physiquement remis aux ouvriers</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={exportEpiFournisPDF}
+                  className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 border border-red-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <FileText size={14} /> PDF
+                </button>
+                <button
+                  onClick={exportEpiFournisExcel}
+                  className="px-3 py-1.5 bg-green-50 text-green-600 hover:bg-green-100 border border-green-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <FileSpreadsheet size={14} /> Excel
+                </button>
+                <button
+                  onClick={() => setShowEpiFournisModal(false)}
+                  className="ml-4 text-gray-400 hover:text-gray-600 p-2 hover:bg-white rounded-full transition-colors"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-6 overflow-y-auto">
+              {epiFournis.length > 0 ? (
+                <div className="overflow-x-auto rounded-xl border border-gray-100">
+                  <table className="w-full text-left border-collapse text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider text-xs border-b border-gray-200">
+                        <th className="py-3 px-4">Date de remise</th>
+                        <th className="py-3 px-4">Ouvrier / Désignation</th>
+                        <th className="py-3 px-4">Équipement</th>
+                        <th className="py-3 px-4 text-right">Prix Unitaire</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
+                      {epiFournis.map((item) => {
+                        const worker = ouvriers.find(o => o.id === item.ouvrier_id);
+                        return (
+                          <tr key={item.id} className="hover:bg-purple-50/20 transition-colors">
+                            <td className="py-3 px-4 font-mono text-gray-500">{formatDate(item.date_remise)}</td>
+                            <td className="py-3 px-4 text-gray-900">{worker ? `${worker.nom} ${worker.prenom || ''}` : `Ouvrier #${item.ouvrier_id}`}</td>
+                            <td className="py-3 px-4 text-purple-900">{item.equipement}</td>
+                            <td className="py-3 px-4 text-right font-black font-mono text-gray-800">{formatCurrency(item.prix)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-purple-50/50 border-t border-purple-100">
+                      <tr>
+                        <td colSpan="3" className="py-3 px-4 text-right font-extrabold text-purple-900 uppercase tracking-wider text-xs">
+                          Total Global (Informatif) :
+                        </td>
+                        <td className="py-3 px-4 text-right font-black font-mono text-purple-700">
+                          {formatCurrency(epiFournis.reduce((sum, item) => sum + Number(item.prix), 0))}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-12 text-center border-2 border-dashed border-gray-100 rounded-xl bg-gray-50/50">
+                  <HardHat className="text-gray-300 mb-4" size={48} />
+                  <h3 className="text-lg font-bold text-gray-900 mb-1">Aucun équipement enregistré</h3>
+                  <p className="text-sm text-gray-500">
+                    Les équipements enregistrés sur les fiches des ouvriers apparaîtront ici.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button
+                onClick={() => setShowEpiFournisModal(false)}
+                className="px-6 py-2 bg-white border border-gray-200 text-gray-700 font-bold rounded-xl shadow-sm hover:bg-gray-50 transition-colors"
+              >
+                Fermer
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

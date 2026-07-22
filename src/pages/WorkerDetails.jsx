@@ -11,7 +11,7 @@ import { formatCurrency, formatCurrencySigned, formatDate } from '../lib/utils';
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function WorkerDetails() {
   const { id } = useParams();
@@ -23,8 +23,13 @@ export default function WorkerDetails() {
   const [paiementsLoyer, setPaiementsLoyer] = useState([]);
   const [paies, setPaies] = useState([]);
   const [pointages, setPointages] = useState([]);
+  const [epiProgrammes, setEpiProgrammes] = useState([]);
+  const [epiFournis, setEpiFournis] = useState([]);
+  const [newEpiFourni, setNewEpiFourni] = useState({ equipement: '', prix: '', date_remise: new Date().toISOString().split('T')[0] });
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
+  const [newProgramme, setNewProgramme] = useState({ semaines_totales: '', montant: '', semaines_exclues: '' });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'paies' | 'epi' | 'loyer' | 'pointages'
+  const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'paies' | 'epi' | 'programme_epi' | 'loyer' | 'pointages'
 
   useEffect(() => {
     fetchWorkerData();
@@ -33,13 +38,15 @@ export default function WorkerDetails() {
   const fetchWorkerData = async () => {
     setLoading(true);
     try {
-      const [workerRes, ponctionsRes, loyersRes, paiementsRes, paiesRes, pointagesRes] = await Promise.all([
+      const [workerRes, ponctionsRes, loyersRes, paiementsRes, paiesRes, pointagesRes, epiProgRes, epiFournisRes] = await Promise.all([
         apiFetch(`/api/ouvriers/${id}`).catch(() => null),
         apiFetch(`/api/ponctions`).catch(() => null),
         apiFetch(`/api/loyers`).catch(() => null),
         apiFetch(`/api/paiements-loyer`).catch(() => null),
         apiFetch(`/api/paies`).catch(() => null),
         apiFetch(`/api/pointages`).catch(() => null),
+        apiFetch(`/api/epi-programmes`).catch(() => null),
+        apiFetch(`/api/epi-fournis`).catch(() => null),
       ]);
 
       if (workerRes && workerRes.ok) {
@@ -86,6 +93,20 @@ export default function WorkerDetails() {
         setPointages(Array.isArray(pointagesData) ? pointagesData.filter(p => Number(p?.ouvrier_id) === Number(id)) : []);
       } else {
         setPointages([]);
+      }
+
+      if (epiProgRes && epiProgRes.ok) {
+        const epiData = await epiProgRes.json().catch(() => []);
+        setEpiProgrammes(Array.isArray(epiData) ? epiData.filter(e => Number(e?.ouvrier_id) === Number(id)) : []);
+      } else {
+        setEpiProgrammes([]);
+      }
+
+      if (epiFournisRes && epiFournisRes.ok) {
+        const epiFournisData = await epiFournisRes.json().catch(() => []);
+        setEpiFournis(Array.isArray(epiFournisData) ? epiFournisData.filter(e => Number(e?.ouvrier_id) === Number(id)) : []);
+      } else {
+        setEpiFournis([]);
       }
     } catch (error) {
       console.error('Error fetching worker data:', error);
@@ -373,7 +394,7 @@ export default function WorkerDetails() {
     doc.setFillColor(244, 189, 11);
     doc.rect(0, 36, pageW, 3, 'F');
     try {
-      doc.addImage(gebatLogo, 'JPEG', pageW - 38, 3, 30, 30);
+      doc.addImage(gebatLogo, 'PNG', pageW - 38, 3, 30, 30);
     } catch (e) {}
 
     doc.setFont('helvetica', 'bold');
@@ -446,6 +467,113 @@ export default function WorkerDetails() {
 
     doc.save(`Fiche_Ouvrier_${(worker.nom || 'Ouvrier').replace(/\s+/g, '_')}_${id}.pdf`);
   };
+
+  const handleAddEpiProgramme = async (e) => {
+    e.preventDefault();
+    if (epiProgrammes.length > 0) {
+      alert("Une planification existe déjà. Veuillez l'annuler avant d'en créer une nouvelle.");
+      return;
+    }
+    if (!newProgramme.semaines_totales || !newProgramme.montant) {
+      alert("Veuillez renseigner le nombre de semaines et le montant.");
+      return;
+    }
+    
+    try {
+      const res = await apiFetch('/api/epi-programmes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ouvrier_id: worker.id,
+          semaines_totales: newProgramme.semaines_totales,
+          montant: newProgramme.montant,
+          semaines_exclues: newProgramme.semaines_exclues || ''
+        })
+      });
+      if (res.ok) {
+        setNewProgramme({ semaines_totales: '', montant: '', semaines_exclues: '' });
+        fetchWorkerData();
+        alert("Programmation enregistrée avec succès !");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur lors de l'enregistrement de la programmation.");
+    }
+  };
+
+  const handleDeleteEpiProgramme = async (id) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cette programmation ?")) return;
+    try {
+      const res = await apiFetch(`/api/epi-programmes/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchWorkerData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleAddEpiFourni = async (e) => {
+    e.preventDefault();
+    if (!newEpiFourni.equipement || !newEpiFourni.prix || !newEpiFourni.date_remise) {
+      alert("Veuillez renseigner l'équipement, le prix et la date.");
+      return;
+    }
+    
+    try {
+      const res = await apiFetch('/api/epi-fournis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ouvrier_id: worker.id,
+          equipement: newEpiFourni.equipement,
+          prix: newEpiFourni.prix,
+          date_remise: newEpiFourni.date_remise
+        })
+      });
+      if (res.ok) {
+        setNewEpiFourni({ equipement: '', prix: '', date_remise: new Date().toISOString().split('T')[0] });
+        fetchWorkerData();
+        setShowSuccessPopup(true);
+        setTimeout(() => setShowSuccessPopup(false), 3000);
+      } else {
+        alert("Erreur serveur : Avez-vous pensé à redémarrer le backend (Express) ?");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur de connexion au serveur. Assurez-vous d'avoir redémarré le serveur backend.");
+    }
+  };
+
+  const handleDeleteEpiFourni = async (id) => {
+    if (!window.confirm("Voulez-vous vraiment supprimer cet équipement ?")) return;
+    try {
+      const res = await apiFetch(`/api/epi-fournis/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchWorkerData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500 gap-3 bg-white rounded-3xl p-12 border border-gray-100 shadow-sm">
+        <RefreshCw className="animate-spin text-indigo-600" size={32} />
+        <span className="font-extrabold text-sm uppercase tracking-wider">Chargement des détails de l'ouvrier...</span>
+      </div>
+    );
+  }
+
+  if (!worker) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500 gap-3 bg-white rounded-3xl p-12 border border-gray-100 shadow-sm">
+        <XCircle className="text-red-500" size={48} />
+        <span className="font-black text-lg text-gray-800">Ouvrier introuvable (ID: {id})</span>
+        <p className="text-xs text-gray-400 text-center max-w-md">Cet ouvrier n'existe pas dans le registre ou la connexion au serveur a rencontré un problème.</p>
+        <button onClick={() => navigate('/ouvriers')} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-all shadow mt-2 flex items-center gap-2">
+          <ArrowLeft size={16} /> Retour au Registre des Ouvriers
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-8 pb-16 animate-fadeIn">
@@ -640,6 +768,17 @@ export default function WorkerDetails() {
             }`}
           >
             <Shield size={15} /> Caution &amp; EPI ({ponctions.length})
+          </button>
+
+          <button
+            onClick={() => setActiveTab('programme_epi')}
+            className={`flex items-center gap-2 px-5 py-3 rounded-2xl text-xs font-black tracking-wide uppercase transition-all ${
+              activeTab === 'programme_epi'
+                ? 'bg-sky-600 text-white shadow-md'
+                : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+            }`}
+          >
+            <Calendar size={15} /> Programme EPI
           </button>
           
           <button
@@ -1003,6 +1142,229 @@ export default function WorkerDetails() {
                   </table>
                 </div>
               </div>
+
+              {/* SECTION: Équipements EPI Fournis */}
+              <div className="space-y-4 pt-6 border-t border-gray-100 mt-6">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-black text-sm uppercase tracking-wider text-gray-800 flex items-center gap-2">
+                    <Shield className="text-purple-600" size={18} />
+                    Suivi des équipements remis
+                  </h4>
+                </div>
+                
+                {/* Formulaire d'ajout */}
+                <form onSubmit={handleAddEpiFourni} className="flex flex-wrap items-end gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Équipement</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ex: Casque, Bottes..."
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      value={newEpiFourni.equipement}
+                      onChange={e => setNewEpiFourni({...newEpiFourni, equipement: e.target.value})}
+                    />
+                  </div>
+                  <div className="w-32">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Prix unitaire</label>
+                    <input
+                      type="number"
+                      required
+                      placeholder="Ex: 5000"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      value={newEpiFourni.prix}
+                      onChange={e => setNewEpiFourni({...newEpiFourni, prix: e.target.value})}
+                    />
+                  </div>
+                  <div className="w-40">
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Date de remise</label>
+                    <input
+                      type="date"
+                      required
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      value={newEpiFourni.date_remise}
+                      onChange={e => setNewEpiFourni({...newEpiFourni, date_remise: e.target.value})}
+                    />
+                  </div>
+                  <button type="submit" className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-sm shadow-sm transition-colors whitespace-nowrap">
+                    Enregistrer
+                  </button>
+                </form>
+
+                {/* Tableau */}
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider border-b border-gray-200">
+                        <th className="py-3 px-4">Date</th>
+                        <th className="py-3 px-4">Équipement</th>
+                        <th className="py-3 px-4 text-right">Prix</th>
+                        <th className="py-3 px-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
+                      {epiFournis.length > 0 ? (
+                        epiFournis.map((item) => (
+                          <tr key={item.id} className="hover:bg-purple-50/20 transition-colors">
+                            <td className="py-3 px-4 font-mono text-gray-500">{formatDate(item.date_remise)}</td>
+                            <td className="py-3 px-4 text-gray-900 font-bold">{item.equipement}</td>
+                            <td className="py-3 px-4 text-right font-black font-mono text-purple-700">{formatCurrency(item.prix)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => handleDeleteEpiFourni(item.id)}
+                                className="text-red-400 hover:text-red-600 p-1 bg-red-50 hover:bg-red-100 rounded transition-colors inline-flex"
+                                title="Supprimer"
+                              >
+                                <X size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="text-center py-8 text-gray-400">
+                            Aucun équipement enregistré.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    {epiFournis.length > 0 && (
+                      <tfoot className="bg-purple-50 border-t-2 border-purple-100">
+                        <tr>
+                          <td colSpan="2" className="py-3 px-4 text-right font-extrabold text-purple-900 uppercase tracking-wider">
+                            Total Équipements Fournis :
+                          </td>
+                          <td className="py-3 px-4 text-right font-black font-mono text-purple-900 text-sm">
+                            {formatCurrency(epiFournis.reduce((sum, item) => sum + Number(item.prix), 0))}
+                          </td>
+                          <td></td>
+                        </tr>
+                      </tfoot>
+                    )}
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3.5: Programme EPI */}
+          {activeTab === 'programme_epi' && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="p-6 bg-sky-50/50 border border-sky-100 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-sky-500 uppercase block tracking-wider">Programmation des Prélèvements EPI</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-lg text-sky-950">Déductions futures automatisées</span>
+                  </div>
+                  <p className="text-xs text-gray-500 font-medium">Définissez des montants à prélever automatiquement selon la semaine lors du calcul de la paie.</p>
+                </div>
+                <form onSubmit={handleAddEpiProgramme} className="flex flex-wrap gap-2 w-full md:w-auto items-end justify-end">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="Nbre semaines (ex: 4)"
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-44 disabled:bg-gray-100 disabled:text-gray-400"
+                      value={newProgramme.semaines_totales}
+                      onChange={e => setNewProgramme({...newProgramme, semaines_totales: e.target.value})}
+                      disabled={epiProgrammes.length > 0}
+                    />
+                    <input
+                      type="number"
+                      placeholder="Montant (ex: 2000)"
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-32 disabled:bg-gray-100 disabled:text-gray-400"
+                      value={newProgramme.montant}
+                      onChange={e => setNewProgramme({...newProgramme, montant: e.target.value})}
+                      disabled={epiProgrammes.length > 0}
+                    />
+                  </div>
+                  <div className="flex gap-2 w-full md:w-auto">
+                    <input
+                      type="text"
+                      placeholder="Semaines exclues (ex: SEMAINE 4)"
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-60 disabled:bg-gray-100 disabled:text-gray-400"
+                      value={newProgramme.semaines_exclues}
+                      onChange={e => setNewProgramme({...newProgramme, semaines_exclues: e.target.value})}
+                      title="Séparez les semaines par une virgule si vous en avez plusieurs"
+                      disabled={epiProgrammes.length > 0}
+                    />
+                    <button 
+                      type="submit" 
+                      disabled={epiProgrammes.length > 0}
+                      className={`px-4 py-2 text-white rounded-lg text-sm font-bold whitespace-nowrap transition-colors ${epiProgrammes.length > 0 ? 'bg-gray-400 cursor-not-allowed' : 'bg-sky-600 hover:bg-sky-700'}`}
+                    >
+                      Planifier
+                    </button>
+                    {epiProgrammes.length > 0 && (
+                      <button 
+                        type="button" 
+                        onClick={() => handleDeleteEpiProgramme(epiProgrammes[0].id)}
+                        className="px-4 py-2 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold hover:bg-red-100 whitespace-nowrap transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                </form>
+              </div>
+
+              <div className="space-y-4">
+                <h4 className="font-black text-sm uppercase tracking-wider text-gray-800 flex items-center gap-2">
+                  <Calendar className="text-sky-600" size={18} />
+                  Liste des prélèvements EPI programmés
+                </h4>
+                
+                <div className="overflow-x-auto rounded-2xl border border-gray-100">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider border-b border-gray-200">
+                        <th className="py-3 px-4">Date de Création</th>
+                        <th className="py-3 px-4">Nb. de semaines</th>
+                        <th className="py-3 px-4 text-right">Montant à prélever</th>
+                        <th className="py-3 px-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
+                      {epiProgrammes.length > 0 ? (
+                        epiProgrammes.map((prog) => {
+                          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
+                          return (
+                            <tr key={prog.id} className="hover:bg-sky-50/20 transition-colors">
+                              <td className="py-3 px-4 font-mono">{formatDate(prog.created_at)}</td>
+                              <td className="py-3 px-4 text-sky-800 font-black">
+                                {prog.semaines_totales} semaine(s)
+                                <div className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                                  Déjà prélevé : {ponctionsReliees} fois
+                                </div>
+                                {prog.semaines_exclues && (
+                                  <div className="text-[9px] text-rose-500 font-bold mt-0.5" title="Ces semaines seront ignorées lors du calcul">
+                                    Exclut: {prog.semaines_exclues}
+                                  </div>
+                                )}
+                              </td>
+                              <td className="py-3 px-4 text-right text-amber-600 font-black">{formatCurrency(prog.montant)}</td>
+                              <td className="py-3 px-4 text-center">
+                                <button
+                                  onClick={() => handleDeleteEpiProgramme(prog.id)}
+                                  className="text-red-500 hover:text-red-700 p-1"
+                                  title="Supprimer"
+                                >
+                                  <XCircle size={16} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="4" className="text-center py-12 text-gray-400">
+                            Aucune programmation EPI pour cet ouvrier.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           )}
 
@@ -1108,6 +1470,28 @@ export default function WorkerDetails() {
               </div>
             </div>
           )}
+
+          {/* Success Popup */}
+          {showSuccessPopup && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/40 backdrop-blur-sm animate-fadeIn">
+              <div className="bg-white rounded-2xl p-8 shadow-2xl flex flex-col items-center gap-4 animate-bounce-in max-w-sm w-full mx-4">
+                <div className="w-16 h-16 bg-emerald-100 text-emerald-500 rounded-full flex items-center justify-center">
+                  <CheckCircle2 size={32} />
+                </div>
+                <div className="text-center">
+                  <h3 className="text-xl font-black text-gray-900 mb-2">Enregistré !</h3>
+                  <p className="text-sm text-gray-500 font-medium">L'équipement EPI a bien été ajouté au dossier de l'ouvrier.</p>
+                </div>
+                <button
+                  onClick={() => setShowSuccessPopup(false)}
+                  className="mt-2 w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl transition-colors"
+                >
+                  Continuer
+                </button>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>

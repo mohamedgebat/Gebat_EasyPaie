@@ -5,7 +5,7 @@
 ![Statut](https://img.shields.io/badge/Statut-Production%20Ready-emerald.svg?style=for-the-badge)
 ![Stack](https://img.shields.io/badge/Stack-React%2018%20%7C%20Vite%205%20%7C%20Express%20%7C%20MySQL%20%2F%20LowDB-indigo.svg?style=for-the-badge)
 
-**GEBAT EasyPaie** est la plateforme digitale de référence conçue sur-mesure pour **GEBAT (Générale de Bâtiment)** et ses partenaires (**NOURIVOIRE**, etc.). Elle automatise l'intégralité de la chaîne de traitement de la paie hebdomadaire des ouvriers sur chantiers : import intelligent des pointages, calcul automatisé des retenues d'équipements de protection individuelle (**EPI**), gestion des loyers de base-vie, calcul du net à payer au centime près et génération d'états d'édition certifiés (Excel hautement stylisés et PDF officiels avec logo GEBAT).
+**GEBAT EasyPaie** est la plateforme digitale de référence conçue sur-mesure pour **GEBAT (Générale de Bâtiment)**. Elle automatise l'intégralité de la chaîne de traitement de la paie hebdomadaire des ouvriers sur chantiers : import intelligent des pointages, calcul automatisé des retenues d'équipements de protection individuelle (**EPI**), gestion des loyers de base-vie, calcul du net à payer au centime près et génération d'états d'édition certifiés (Excel hautement stylisés et PDF officiels avec logo GEBAT).
 
 ---
 
@@ -290,3 +290,16 @@ node scratch/export_sql.js
 "# Gebat_EasyPaie" 
 "# Gebat_EasyPaie" 
 "# Gebat-EasyPaie" 
+
+
+Ton backend est accessible à l'adresse :
+
+https://gebateasypaie-production.up.railway.app
+
+Tu peux maintenant faire les vérifications suivantes.
+
+1. Tester le backend
+
+Ouvre dans ton navigateur :
+
+https://gebateasypaie-production.up.railway.app/api/health

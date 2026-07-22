@@ -10,12 +10,13 @@ import { formatCurrency, formatCurrencySigned, formatDate, formatWeekLabel, form
 import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import gebatLogo from '../assets/gebat_logo.jpg';
+import gebatLogo from '../assets/logo_gebat.png';
 
 export default function CalculPaie() {
   const navigate = useNavigate();
   const [pointages, setPointages] = useState([]);
   const [ponctions, setPonctions] = useState([]);
+  const [epiProgrammes, setEpiProgrammes] = useState([]);
   const [loyers, setLoyers] = useState([]);
   const [paiementsLoyer, setPaiementsLoyer] = useState([]);
   const [ouvriers, setOuvriers] = useState([]);
@@ -176,13 +177,14 @@ export default function CalculPaie() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [pointagesRes, ponctionsRes, loyersRes, paiementsRes, ouvriersRes, paiesRes] = await Promise.all([
+      const [pointagesRes, ponctionsRes, loyersRes, paiementsRes, ouvriersRes, paiesRes, epiProgRes] = await Promise.all([
         apiFetch('/api/pointages'),
         apiFetch('/api/ponctions'),
         apiFetch('/api/loyers'),
         apiFetch('/api/paiements-loyer'),
         apiFetch('/api/ouvriers'),
         apiFetch('/api/paies'),
+        apiFetch('/api/epi-programmes'),
       ]);
       const pts = await pointagesRes.json();
       setPointages(pts);
@@ -190,8 +192,8 @@ export default function CalculPaie() {
       setLoyers(await loyersRes.json());
       setPaiementsLoyer(await paiementsRes.json());
       setOuvriers(await ouvriersRes.json());
-      const pData = await paiesRes.json();
-      setPaies(pData);
+      setPaies(await paiesRes.json());
+      setEpiProgrammes(await epiProgRes.json().catch(() => []));
 
       if (!syncWithLastImport() && pts && pts.length > 0) {
         const sortedPts = [...pts].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
@@ -258,9 +260,35 @@ export default function CalculPaie() {
       return { montant: Number(existingPeriodPonction.montant) || 0, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid, epiLimit };
     }
 
-    // 2. La ponction ne se facture pas automatiquement sur la page Calcul Paie.
-    // Elle se facture depuis la page Ponctions EPI (ou ponction saisie).
-    return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit };
+    // 2. Sinon, vérifier si une ponction EPI est programmée (par nombre de semaines)
+    const activeProgram = epiProgrammes.find(e => {
+      if (Number(e.ouvrier_id) !== Number(ouvrierId)) return false;
+      
+      // Vérifier si la semaine actuelle est dans les semaines exclues
+      if (e.semaines_exclues) {
+        const excludedWeeks = String(e.semaines_exclues).split(',').map(s => s.trim().toUpperCase());
+        const currentWeek = String(semaine).trim().toUpperCase();
+        if (excludedWeeks.includes(currentWeek)) return false;
+      }
+
+      const progPonctionsCount = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${e.id}]`)).length;
+      return progPonctionsCount < Number(e.semaines_totales);
+    });
+
+    if (activeProgram) {
+      return { 
+        montant: Number(activeProgram.montant) || 0, 
+        has_existing: false, 
+        existing_id: null, 
+        totalPaid, 
+        epiLimit, 
+        fromProgram: true,
+        programId: activeProgram.id 
+      };
+    }
+
+    // 3. Aucune ponction
+    return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
   };
 
   const handleCalcul = () => {
@@ -465,6 +493,8 @@ export default function CalculPaie() {
         epi_limit: Number(calcPonctionResult.epiLimit) || 0,
         has_existing_ponction: calcPonctionResult.has_existing,
         existing_ponction_id: calcPonctionResult.existing_id,
+        fromProgram: calcPonctionResult.fromProgram,
+        programId: calcPonctionResult.programId,
         is_custom_ponction: false,
         loyer: loyerAmount,
         epi_remboursement: epiRemboursement,
@@ -567,7 +597,7 @@ export default function CalculPaie() {
                 ouvrier_id: paie.ouvrier_id,
                 date: paie.date,
                 montant: paie.ponction,
-                motif: 'Retenue hebdomadaire EPI',
+                motif: paie.fromProgram ? `[PROG EPI N°${paie.programId}] Prélèvement automatique` : 'Retenue hebdomadaire EPI',
               }),
             });
           }
@@ -821,7 +851,7 @@ export default function CalculPaie() {
     doc.setFillColor(244, 189, 11);
     doc.rect(0, 42, pageW, 3, 'F');
     try {
-      doc.addImage(gebatLogo, 'JPEG', pageW - 46, 2, 34, 34);
+      doc.addImage(gebatLogo, 'PNG', pageW - 46, 2, 34, 34);
     } catch (e) {}
     doc.setFillColor(244, 189, 11);
     doc.rect(pageW - 50, 4, 1, 30, 'F');
@@ -1225,14 +1255,7 @@ export default function CalculPaie() {
 
           {calculatedPaie.length > 0 && (
             <div className="flex flex-wrap items-center gap-3">
-              {calculatedPaie.some(p => !p.deja_paye && !p.paye) && (
-                <button
-                  onClick={handlePaiementGroupe}
-                  className="px-5 py-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold rounded-xl border border-indigo-200 flex items-center gap-2 text-xs transition-all"
-                >
-                  <CheckCircle2 size={16} /> Tout marquer comme Payé
-                </button>
-              )}
+
               {calculatedPaie.every(p => p.deja_paye) ? (
                 <button
                   disabled
@@ -1247,7 +1270,7 @@ export default function CalculPaie() {
                   className="px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-gray-950 font-black rounded-xl shadow-lg shadow-orange-500/25 flex items-center gap-2 text-xs transition-all hover:scale-105"
                 >
                   <CheckCircle size={16} className="stroke-[3]" />
-                  Enregistrer et marquer payé ({calculatedPaie.filter(p => !p.deja_paye).length} nouvelle{calculatedPaie.filter(p => !p.deja_paye).length > 1 ? 's' : ''})
+                  Enregistrer les paies ({calculatedPaie.filter(p => !p.deja_paye).length} nouvelle{calculatedPaie.filter(p => !p.deja_paye).length > 1 ? 's' : ''})
                 </button>
               )}
               <button
@@ -1547,7 +1570,6 @@ export default function CalculPaie() {
                     <th className="py-4 px-4 text-right font-black text-emerald-900">Net à Payer</th>
                     <th className="py-4 px-3">Transfert Mobile Money</th>
                     <th className="py-4 px-3 text-center">Statut Virement</th>
-                    <th className="py-4 px-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -1695,28 +1717,6 @@ export default function CalculPaie() {
                           <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800 border border-amber-200">
                             <Clock size={13} /> Non réglé
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-3 text-right">
-                        {paie.deja_paye ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs bg-gray-100 text-gray-500 border border-gray-200 cursor-not-allowed" title="Cette paie a déjà été validée et enregistrée en base">
-                            <ShieldAlert size={14} className="text-gray-400" /> Clôturé
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => handlePaiementIndividuel(origIndex)}
-                            className={`px-3.5 py-1.5 rounded-xl font-extrabold text-xs transition-all flex items-center gap-1.5 shadow-sm ml-auto ${
-                              paie.paye
-                                ? 'bg-red-50 hover:bg-red-100 text-red-700 border border-red-200'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/20'
-                            }`}
-                          >
-                            {paie.paye ? (
-                              <><RefreshCw size={13} /> Annuler</>
-                            ) : (
-                              <><CheckCircle size={13} strokeWidth={2.5} /> Marquer payé</>
-                            )}
-                          </button>
                         )}
                       </td>
                     </tr>
