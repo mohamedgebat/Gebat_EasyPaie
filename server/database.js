@@ -2,11 +2,11 @@ import mysql from 'mysql2/promise';
 
 // Pool MySQL avec paramètres par défaut (localhost:3306, user: root, password: '', db: gebat_easypaie)
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'gebat_easypaie',
-  port: Number(process.env.DB_PORT) || 3306,
+  host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
+  user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
+  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
+  database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'gebat_easypaie',
+  port: Number(process.env.DB_PORT) || Number(process.env.MYSQLPORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
