@@ -29,6 +29,7 @@ export default function Loyers() {
     site: '',
     qualification: '',
     montant_mensuel: '',
+    type: 'long_terme',
     mois: new Date().toLocaleString('fr-FR', { month: 'long' }),
     annee: new Date().getFullYear(),
   });
@@ -83,6 +84,7 @@ export default function Loyers() {
         site: '',
         qualification: '',
         montant_mensuel: '',
+        type: 'long_terme',
         mois: new Date().toLocaleString('fr-FR', { month: 'long' }),
         annee: new Date().getFullYear(),
       });
@@ -695,7 +697,14 @@ export default function Loyers() {
                         {formatCurrency(loyer.montant_mensuel)}
                       </td>
                       <td className="py-4 px-6 font-bold capitalize text-gray-700">
-                        {loyer.mois} {loyer.annee}
+                        {loyer.type === 'long_terme' ? (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-purple-100 text-purple-800 font-extrabold rounded-full text-xs shadow-sm">
+                            <RefreshCw size={13} className="text-purple-600" />
+                            Tous les mois
+                          </span>
+                        ) : (
+                          <span>{loyer.mois} {loyer.annee}</span>
+                        )}
                       </td>
                       <td className="py-4 px-6">
                         {payment ? (
@@ -825,45 +834,85 @@ export default function Loyers() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Montant mensuel de location (FCFA) *</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Montant mensuel (FCFA) *</label>
                 <input
                   type="number"
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-base font-black text-blue-900 focus:bg-white focus:border-blue-500 font-mono"
+                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-blue-600 focus:bg-white focus:border-blue-500"
                   value={formData.montant_mensuel}
                   onChange={(e) => setFormData({ ...formData, montant_mensuel: e.target.value })}
                   required
-                  min="0"
-                  placeholder="Ex: 15000"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Mois de début *</label>
-                  <select
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:bg-white focus:border-blue-500"
-                    value={formData.mois}
-                    onChange={(e) => setFormData({ ...formData, mois: e.target.value })}
-                    required
+              <div>
+                <label className="block text-xs font-bold text-gray-700 mb-2">Type d'hébergement *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: 'long_terme' })}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      formData.type === 'long_terme'
+                        ? 'border-blue-500 bg-blue-50 shadow-md shadow-blue-500/10'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
                   >
-                    {['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'].map(m => (
-                      <option key={m} value={m} className="capitalize">{m}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Année *</label>
-                  <input
-                    type="number"
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold"
-                    value={formData.annee}
-                    onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) || new Date().getFullYear() })}
-                    required
-                    min="2020"
-                    max="2030"
-                  />
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`p-1.5 rounded-lg ${formData.type === 'long_terme' ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-500'}`}>
+                        <RefreshCw size={16} />
+                      </div>
+                      <span className={`font-bold text-sm ${formData.type === 'long_terme' ? 'text-blue-900' : 'text-gray-700'}`}>Long terme</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Prélèvement automatique chaque mois</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, type: 'court_terme' })}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      formData.type === 'court_terme'
+                        ? 'border-orange-500 bg-orange-50 shadow-md shadow-orange-500/10'
+                        : 'border-gray-200 bg-white hover:border-gray-300'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className={`p-1.5 rounded-lg ${formData.type === 'court_terme' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+                        <Calendar size={16} />
+                      </div>
+                      <span className={`font-bold text-sm ${formData.type === 'court_terme' ? 'text-orange-900' : 'text-gray-700'}`}>Court terme</span>
+                    </div>
+                    <p className="text-xs text-gray-500">Prélèvement unique pour un mois précis</p>
+                  </button>
                 </div>
               </div>
+
+              {formData.type === 'court_terme' && (
+                <div className="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Mois cible *</label>
+                    <select
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-orange-500"
+                      value={formData.mois}
+                      onChange={(e) => setFormData({ ...formData, mois: e.target.value })}
+                      required
+                    >
+                      {['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'].map(m => (
+                        <option key={m} value={m} className="capitalize">{m}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-1">Année *</label>
+                    <input
+                      type="number"
+                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-orange-500"
+                      value={formData.annee}
+                      onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) || new Date().getFullYear() })}
+                      required
+                      min="2020"
+                      max="2030"
+                    />
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
                 <button

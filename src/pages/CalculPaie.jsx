@@ -219,8 +219,7 @@ export default function CalculPaie() {
 
     const loyer = loyers.find(
       l => Number(l.ouvrier_id) === Number(ouvrierId) &&
-           l.mois?.toLowerCase() === currentMonth &&
-           Number(l.annee) === currentYear
+           (l.type === 'long_terme' || (l.mois?.toLowerCase() === currentMonth && Number(l.annee) === currentYear))
     );
     if (!loyer) return 0;
     
