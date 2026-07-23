@@ -166,6 +166,25 @@ const dbInterface = {
     return true;
   },
 
+  // EPI Fournis
+  getEpiFournis: async () => {
+    const [rows] = await pool.query('SELECT * FROM epi_fournis ORDER BY id DESC');
+    return rows;
+  },
+
+  addEpiFourni: async (data) => {
+    const [res] = await pool.query(
+      `INSERT INTO epi_fournis (ouvrier_id, equipement, prix, date_remise) VALUES (?, ?, ?, ?)`,
+      [data.ouvrier_id, data.equipement, Number(data.prix) || 0, data.date_remise]
+    );
+    return { id: res.insertId, ...data };
+  },
+
+  deleteEpiFourni: async (id) => {
+    await pool.query('DELETE FROM epi_fournis WHERE id = ?', [id]);
+    return true;
+  },
+
   getPonctionsByOuvrier: async (ouvrierId) => {
     const [rows] = await pool.query('SELECT * FROM ponctions WHERE ouvrier_id = ? ORDER BY id DESC', [ouvrierId]);
     return rows;
