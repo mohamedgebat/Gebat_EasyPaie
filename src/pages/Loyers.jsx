@@ -453,7 +453,7 @@ export default function Loyers() {
               className="px-6 py-3.5 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-extrabold rounded-2xl shadow-xl shadow-orange-500/30 flex items-center justify-center gap-2.5 transform active:scale-95 transition-all text-sm whitespace-nowrap"
             >
               <Plus size={20} className="stroke-[3]" />
-              Ajouter un loyer
+              Programmer un loyer
             </button>
           </div>
         </div>
@@ -654,8 +654,8 @@ export default function Loyers() {
         ) : filteredLoyers.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center text-gray-400">
             <Home size={40} className="mb-2 text-gray-300 stroke-[1.5]" />
-            <p className="text-base font-bold text-gray-700">Aucun loyer trouvé</p>
-            <p className="text-xs text-gray-400 mt-1">Ajoutez un ouvrier logé en cliquant sur « + Ajouter un loyer » ci-dessus.</p>
+            <p className="text-base font-bold text-gray-700">Aucun ouvrier programmé pour le loyer</p>
+            <p className="text-xs text-gray-400 mt-1">Programmez un ouvrier en cliquant sur « + Programmer un loyer » ci-dessus.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -666,7 +666,7 @@ export default function Loyers() {
                   <th className="py-4 px-6">Chantier / Site</th>
                   <th className="py-4 px-6">Qualification</th>
                   <th className="py-4 px-6 text-right">Montant Mensuel</th>
-                  <th className="py-4 px-6">Période Loyer</th>
+                  <th className="py-4 px-6">Début Hébergement</th>
                   <th className="py-4 px-6">Statut Ce Mois</th>
                   <th className="py-4 px-6">Dernier Paiement</th>
                   <th className="py-4 px-6 text-right">Actions</th>
@@ -751,9 +751,9 @@ export default function Loyers() {
                 </div>
                 <div>
                   <h2 className="text-lg font-extrabold">
-                    {editingLoyer ? 'Modifier la fiche de loyer' : 'Ajouter un nouveau loyer'}
+                    {editingLoyer ? 'Modifier la programmation du loyer' : 'Programmer un loyer mensuel'}
                   </h2>
-                  <p className="text-xs text-blue-200 mt-0.5">Enregistrement au registre d'hébergement</p>
+                  <p className="text-xs text-blue-200 mt-0.5">L'ouvrier sélectionné sera redevable de ce montant chaque mois</p>
                 </div>
               </div>
               <button
@@ -837,11 +837,11 @@ export default function Loyers() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Mois du loyer *</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Mois de début *</label>
                   <select
-                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold capitalize"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:bg-white focus:border-blue-500"
                     value={formData.mois}
                     onChange={(e) => setFormData({ ...formData, mois: e.target.value })}
                     required
