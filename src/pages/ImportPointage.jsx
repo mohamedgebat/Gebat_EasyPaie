@@ -239,10 +239,22 @@ export default function ImportPointage() {
         continue;
       }
       
+      // Calculate total days including 0,5
+      let totalDays = 0;
+      for (let j = 2; j <= row.length - 4; j++) {
+        const val = row[j];
+        if (val === 1 || val === '1') {
+          totalDays += 1;
+        } else if (val === 0.5 || val === '0.5' || val === '0,5' || val === ',5' || val === '.5') {
+          totalDays += 0.5;
+        }
+      }
+
       const processedRow = {
         'NOM ET PRENOMS': name,
         'Qualification': qualification,
         'S/N': row[0],
+        'JOURS_TRAVAILLES': totalDays,
         'TOTAL': row[row.length - 3],
         'RETENUE EPI': row[row.length - 2],
         'NET A PAYER': row[row.length - 1],
@@ -429,6 +441,24 @@ export default function ImportPointage() {
 
         if (worker && worker.id) {
           importedWorkerIds.push(worker.id);
+
+          const parsedTotalDays = Number(row['JOURS_TRAVAILLES']) || 0;
+          let baseHebdo = 45000;
+          if (Number(worker.salaire_base) > 0) {
+            baseHebdo = Number(worker.salaire_base);
+          } else {
+            const qualif = (worker.qualification || row.Qualification || '').toLowerCase();
+            if (qualif.includes('aide')) {
+              baseHebdo = 27000;
+            }
+          }
+          const dailyRate = baseHebdo / 6;
+          const calculatedBrut = parsedTotalDays > 0 ? (parsedTotalDays * dailyRate) : 0;
+          
+          const rawTotal = Number(row['TOTAL']) || Number(row['SALAIRE BRUT']) || Number(row['Salaire Brut']) || Number(row['NET A PAYER']) || Number(row['Net à payer']) || Number(row['Net a payer']) || Number(row.salaire) || 0;
+          
+          const finalBrut = calculatedBrut > 0 ? calculatedBrut : rawTotal;
+
           await apiFetch('/api/pointages', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -438,7 +468,7 @@ export default function ImportPointage() {
               date_debut: extractedDates.debut || null,
               date_fin: extractedDates.fin || null,
               semaine: extractedDates.semaine || '',
-              salaire_brut: Number(row['TOTAL']) || Number(row['SALAIRE BRUT']) || Number(row['Salaire Brut']) || Number(row['NET A PAYER']) || Number(row['Net à payer']) || Number(row['Net a payer']) || Number(row.salaire) || 0,
+              salaire_brut: finalBrut,
               site: detectedSite || worker.site || 'SONGON'
             }),
           });
@@ -815,12 +845,12 @@ export default function ImportPointage() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider border-b border-gray-200">
-                    <th className="py-3.5 px-4 w-16 text-center">S/N</th>
-                    <th className="py-3.5 px-4">NOM ET PRENOMS</th>
-                    <th className="py-3.5 px-4">Qualification</th>
-                    <th className="py-3.5 px-4 text-right">TOTAL BRUT</th>
-                    <th className="py-3.5 px-4 text-right">RETENUE EPI</th>
-                    <th className="py-3.5 px-4 text-right">NET A PAYER</th>
+                    <th className="py-3 px-4 font-extrabold">Ouvrier</th>
+                    <th className="py-3 px-4 font-extrabold">Qualification</th>
+                    <th className="py-3 px-4 font-extrabold text-center text-teal-700">Jours</th>
+                    <th className="py-3 px-4 text-right font-extrabold">Brut Excel</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-red-600">Ret. EPI</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-emerald-600">Net Excel</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -829,6 +859,7 @@ export default function ImportPointage() {
                       <td className="py-3 px-4 text-center font-mono font-bold text-gray-400">{row['S/N'] || index + 1}</td>
                       <td className="py-3 px-4 font-bold text-gray-900">{row['NOM ET PRENOMS']}</td>
                       <td className="py-3 px-4 font-semibold text-indigo-600">{row.Qualification}</td>
+                      <td className="py-3 px-4 text-center font-bold text-teal-600 bg-teal-50/50">{row['JOURS_TRAVAILLES'] > 0 ? `${row['JOURS_TRAVAILLES']} j` : '-'}</td>
                       <td className="py-3 px-4 text-right font-mono font-bold text-gray-700">{formatCurrency(row.TOTAL || 0)}</td>
                       <td className="py-3 px-4 text-right font-mono text-red-600 font-semibold">{formatCurrency(row['RETENUE EPI'] || 0)}</td>
                       <td className="py-3 px-4 text-right font-mono font-black text-emerald-600 text-sm">{formatCurrency(row['NET A PAYER'] || 0)}</td>
