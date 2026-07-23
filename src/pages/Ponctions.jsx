@@ -81,8 +81,11 @@ function PonctionsContent() {
 
   const getEpiLimit = (site) => {
     try {
+      const siteLow = String(site || '').toLowerCase();
       if (!settings || !settings.epi_limits) return 9000;
-      return settings.epi_limits[site] || 9000;
+      if (siteLow.includes('bingerville') || siteLow.includes('bengerville')) return Number(settings.epi_limits['Bingerville']) || 12000;
+      if (siteLow.includes('songon')) return Number(settings.epi_limits['Songon']) || 9000;
+      return Number(settings.epi_limits[site]) || 9000;
     } catch (error) {
       console.error('Error getting EPI limit:', error);
       return 9000;
