@@ -117,18 +117,21 @@ export default function WorkerDetails() {
   };
 
   const getEpiLimit = () => {
+    const siteStr = String(worker?.site || '').toLowerCase();
     try {
       const savedSettings = localStorage.getItem('easypaie_settings');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
         if (parsed?.epi_limits && worker?.site) {
+          if (siteStr.includes('bingerville') || siteStr.includes('bengerville')) return Number(parsed.epi_limits['Bingerville']) || 12000;
+          if (siteStr.includes('songon')) return Number(parsed.epi_limits['Songon']) || 9000;
           return Number(parsed.epi_limits[worker.site]) || 9000;
         }
       }
     } catch (e) {
       console.error(e);
     }
-    return String(worker?.site || '').toLowerCase().includes('bingerville') ? 12000 : 9000;
+    return (siteStr.includes('bingerville') || siteStr.includes('bengerville')) ? 12000 : 9000;
   };
 
   const getTotalPonctions = () => {
