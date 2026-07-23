@@ -5,7 +5,7 @@ import {
   ArrowLeft, User, Calendar, Phone, MapPin, Briefcase, CreditCard, 
   Home, Clock, DollarSign, FileText, AlertCircle, CheckCircle2, 
   XCircle, Award, Shield, UserCheck, ShieldAlert, Sparkles, TrendingUp, Info, RefreshCw,
-  Download, Printer, Layers, History, Activity, ExternalLink, ChevronRight
+  Download, Printer, Layers, History, Activity, ExternalLink, ChevronRight, X, HardHat
 } from 'lucide-react';
 import { formatCurrency, formatCurrencySigned, formatDate } from '../lib/utils';
 import * as XLSX from 'xlsx-js-style';
@@ -535,7 +535,8 @@ export default function WorkerDetails() {
         setShowSuccessPopup(true);
         setTimeout(() => setShowSuccessPopup(false), 3000);
       } else {
-        alert("Erreur serveur : Avez-vous pensé à redémarrer le backend (Express) ?");
+        const errorData = await res.json();
+        alert(`Erreur serveur : ${errorData.error || 'Erreur inconnue'}`);
       }
     } catch (err) {
       console.error(err);

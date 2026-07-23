@@ -11,8 +11,35 @@ import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import gebatLogo from '../assets/logo_gebat.png';
+import { Component } from 'react';
 
-export default function Ponctions() {
+class ErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+    this.setState({ errorInfo });
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: 20, color: 'red', background: '#fee' }}>
+          <h2>Something went wrong in Ponctions.jsx.</h2>
+          <pre>{this.state.error && this.state.error.toString()}</pre>
+          <pre>{this.state.errorInfo && this.state.errorInfo.componentStack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function PonctionsContent() {
   const [ponctions, setPonctions] = useState([]);
   const [ouvriers, setOuvriers] = useState([]);
   const [selectedWorker, setSelectedWorker] = useState(null);
@@ -1956,3 +1983,12 @@ export default function Ponctions() {
     </div>
   );
 }
+
+export default function Ponctions() {
+  return (
+    <ErrorBoundary>
+      <PonctionsContent />
+    </ErrorBoundary>
+  );
+}
+
