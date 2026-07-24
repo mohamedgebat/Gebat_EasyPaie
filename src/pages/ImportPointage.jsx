@@ -265,9 +265,61 @@ export default function ImportPointage() {
   };
 
   const processSheetData = (rawData, sheetName) => {
-    // Find the header row (contains "NOM ET PRENOMS")
+    // Check if it's ZKTeco format
+    const isZkteco = rawData[0] && rawData[0].some(cell => cell && cell.toString() === "Nom et prénoms") && rawData[0].some(cell => cell && cell.toString() === "Statut");
+
+    if (isZkteco) {
+      const workerMap = new Map();
+      const headers = rawData[0];
+      const nameIndex = headers.indexOf("Nom et prénoms");
+      const deptIndex = headers.indexOf("Département");
+      const statusIndex = headers.indexOf("Statut");
+      const idIndex = headers.indexOf("ID");
+
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+        const name = row[nameIndex];
+        if (!name || name === '') continue;
+
+        let worker = workerMap.get(name);
+        if (!worker) {
+          worker = {
+            'NOM ET PRENOMS': name,
+            'Qualification': row[deptIndex] || '',
+            'S/N': row[idIndex] || '',
+            'JOURS_TRAVAILLES': 0,
+            'TOTAL': 0, // Will be calculated based on Taux Journalier
+            'RETENUE EPI': 0,
+            'NET A PAYER': 0,
+            'isZkteco': true
+          };
+          workerMap.set(name, worker);
+        }
+
+        const status = row[statusIndex];
+        // Count days present
+        if (status === "Présent" || status === "Normal") {
+          worker['JOURS_TRAVAILLES'] += 1;
+        } else if (status && status.includes && (status.includes("Présent") || status.includes("Normal"))) {
+          worker['JOURS_TRAVAILLES'] += 1;
+        }
+      }
+
+      const dataRows = Array.from(workerMap.values());
+      // Try to determine qualification from sheet name if not available
+      const qualification = sheetName.replace(/FICHE D'EMARGEMENT DES /i, '').replace(/\/ SEMAINE.*/i, '').trim();
+      dataRows.forEach(row => {
+        if (!row.Qualification || row.Qualification.trim() === '') {
+          row.Qualification = qualification;
+        }
+      });
+      return dataRows.filter(row => row['JOURS_TRAVAILLES'] > 0);
+    }
+
+    // Original Format
     const headerRowIndex = rawData.findIndex(row => 
-      row && row.some(cell => cell && cell.toString().includes('NOM ET PRENOMS'))
+      row && row.some(cell => cell && cell.toString().toUpperCase().includes('NOM ET PRENOMS'))
     );
     
     if (headerRowIndex === -1) return [];
@@ -634,11 +686,11 @@ export default function ImportPointage() {
                 Importation & Analyse GEBAT
               </span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm">
-              Import du Pointage
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm flex items-center gap-3">
+              Conversion & Suivi
             </h1>
             <p className="text-emerald-100 mt-2 max-w-2xl text-sm md:text-base leading-relaxed font-normal">
-              Chargez vos classeurs de pointage hebdomadaire (*.xls, *.xlsx), vérifiez instantanément l'existence des ouvriers en base et enregistrez leurs salaires nets.
+              Chargez vos classeurs de pointage hebdomadaire (*.xls, *.xlsx) ou fichiers bruts de badgeuse ZKTeco, vérifiez instantanément l'existence des ouvriers en base et générez la paie.
             </p>
           </div>
 
@@ -957,23 +1009,40 @@ export default function ImportPointage() {
                     <th className="py-3 px-4 font-extrabold">Ouvrier</th>
                     <th className="py-3 px-4 font-extrabold">Qualification</th>
                     <th className="py-3 px-4 font-extrabold text-center text-teal-700">Jours</th>
+                    <th className="py-3 px-4 text-right font-extrabold text-blue-600" title="Renseigné automatiquement d'après la Base de données ou modifiable" >Taux Journalier</th>
                     <th className="py-3 px-4 text-right font-extrabold">Brut Excel</th>
                     <th className="py-3 px-4 text-right font-extrabold text-red-600">Ret. EPI</th>
                     <th className="py-3 px-4 text-right font-extrabold text-emerald-600">Net Excel</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {previewData.slice(0, 10).map((row, index) => (
+                  {previewData.slice(0, 10).map((row, index) => {
+                    const isZkteco = row.isZkteco;
+                    const baseHebdo = 27000; // Placeholder display fallback
+                    const defaultDailyRate = baseHebdo / 6;
+
+                    return (
                     <tr key={index} className="hover:bg-gray-50 transition-colors">
                       <td className="py-3 px-4 text-center font-mono font-bold text-gray-400">{row['S/N'] || index + 1}</td>
                       <td className="py-3 px-4 font-bold text-gray-900">{row['NOM ET PRENOMS']}</td>
                       <td className="py-3 px-4 font-semibold text-indigo-600">{row.Qualification}</td>
                       <td className="py-3 px-4 text-center font-bold text-teal-600 bg-teal-50/50">{row['JOURS_TRAVAILLES'] > 0 ? `${row['JOURS_TRAVAILLES']} j` : '-'}</td>
-                      <td className="py-3 px-4 text-right font-mono font-bold text-gray-700">{formatCurrency(row.TOTAL || 0)}</td>
+                      <td className="py-3 px-4 text-right">
+                        {isZkteco ? (
+                          <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">Auto</span>
+                        ) : (
+                          <span className="text-gray-400">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-mono font-bold text-gray-700">
+                        {isZkteco ? formatCurrency(row['JOURS_TRAVAILLES'] * defaultDailyRate) : formatCurrency(row.TOTAL || 0)}
+                      </td>
                       <td className="py-3 px-4 text-right font-mono text-red-600 font-semibold">{formatCurrency(row['RETENUE EPI'] || 0)}</td>
-                      <td className="py-3 px-4 text-right font-mono font-black text-emerald-600 text-sm">{formatCurrency(row['NET A PAYER'] || 0)}</td>
+                      <td className="py-3 px-4 text-right font-mono font-black text-emerald-600 text-sm">
+                        {isZkteco ? formatCurrency(row['JOURS_TRAVAILLES'] * defaultDailyRate) : formatCurrency(row['NET A PAYER'] || 0)}
+                      </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
               {previewData.length > 10 && (

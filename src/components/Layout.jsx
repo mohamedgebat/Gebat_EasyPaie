@@ -14,7 +14,7 @@ const allNavGroups = [
     items: [
       { path: '/', label: 'Tableau de bord', icon: Home, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier', 'Auditeur'] },
       { path: '/ouvriers', label: 'Gestion des Ouvriers', icon: Users, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
-      { path: '/import-pointage', label: 'Import du Pointage', icon: Upload, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
+      { path: '/import-pointage', label: 'Conversion de Pointage & Suivi', icon: Upload, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
       { path: '/conversion', label: 'Pointage & Édition', icon: Layers, roles: ['Administrateur', 'Contrôleur Chantier'] },
     ]
   },
