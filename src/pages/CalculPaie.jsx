@@ -480,18 +480,20 @@ export default function CalculPaie() {
           epiRemboursement = 0;
           epiDeduction = 0;
         } else {
-          epiRemboursement = Number(ouvrier.epi_remboursement) || Number(existingPaie?.epi_remboursement) || 0;
-          if (ouvrier.epi_deduction !== undefined && ouvrier.epi_deduction !== null && Number(ouvrier.epi_deduction) > 0) {
-            epiDeduction = Number(ouvrier.epi_deduction);
+          // Calculate total EPI paid by the worker
+          const workerPonctionsList = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrier.id) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
+          const regTotal = workerPonctionsList.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+          
+          if (epiDepartureOption === 'epi_complet') {
+            epiRemboursement = regTotal;
+            epiDeduction = 0;
           } else if (epiDepartureOption === 'epi_perdu') {
             const lost = Number(ouvrier.epi_lost_amount) || 0;
-            const workerPonctionsList = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrier.id) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
-            const regTotal = workerPonctionsList.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+            epiRemboursement = Math.max(0, regTotal - lost);
             epiDeduction = 0; // Aucune déduction supplémentaire demandée
-          } else if (existingPaie && Number(existingPaie.epi_deduction) > 0) {
-            epiDeduction = Number(existingPaie.epi_deduction);
           } else {
-            epiDeduction = Number(ouvrier.epi_deduction) || 0;
+            epiRemboursement = Number(ouvrier.epi_remboursement) || Number(existingPaie?.epi_remboursement) || 0;
+            epiDeduction = Number(ouvrier.epi_deduction) || Number(existingPaie?.epi_deduction) || 0;
           }
         }
       } else if (existingPaie && (Number(existingPaie.epi_deduction) > 0 || Number(existingPaie.epi_remboursement) > 0 || existingPaie.epi_departure_option === 'epi_non_retourne')) {
