@@ -1736,10 +1736,10 @@ export default function CalculPaie() {
                     <th className="py-4 px-3 text-center">Date</th>
                     <th className="py-4 px-3 text-center">Période (Intervalle)</th>
                     <th className="py-4 px-3 text-right">Salaire Brut</th>
-                    <th className="py-4 px-3 text-right" title="Montant total des cotisations / ponctions EPI accumulées">Ponctions EPI</th>
+                    <th className="py-4 px-3 text-right" title="Montant total des cotisations / ponctions EPI accumulées">Caution EPI (Cumul)</th>
                     <th className="py-4 px-3 text-right">Loyer</th>
                     <th className="py-4 px-3 text-right">Remb. EPI</th>
-                    <th className="py-4 px-3 text-right">Déd. EPI</th>
+                    <th className="py-4 px-3 text-right" title="Retenue EPI de la semaine">Retenue Semaine</th>
                     <th className="py-4 px-4 text-right font-black text-emerald-900">Net à Payer</th>
                     <th className="py-4 px-3">Transfert Mobile Money</th>
                     <th className="py-4 px-3 text-center">Statut Virement</th>
