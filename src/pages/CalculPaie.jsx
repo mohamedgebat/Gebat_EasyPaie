@@ -1798,11 +1798,11 @@ export default function CalculPaie() {
                           <span className="text-gray-400">-</span>
                         )}
                       </td>
-                      <td className={`py-3.5 px-3 text-right font-mono font-bold ${paie.loyer > 0 ? 'text-purple-600' : 'text-gray-400'}`}>
-                        {formatCurrency(paie.loyer)}
+                      <td className={`py-3.5 px-3 text-right font-mono font-bold ${paie.loyer > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                        {paie.loyer > 0 ? `-${formatCurrency(paie.loyer)}` : '-'}
                       </td>
                       <td className={`py-3.5 px-3 text-right font-mono font-bold ${paie.epi_remboursement > 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                        {formatCurrencySigned(paie.epi_remboursement)}
+                        {paie.epi_remboursement > 0 ? `+${formatCurrency(paie.epi_remboursement)}` : '-'}
                       </td>
                       <td className="py-2.5 px-3 text-right font-mono font-bold">
                         {paie.epi_deduction > 0 ? (
