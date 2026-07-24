@@ -25,6 +25,7 @@ export default function CalculPaie() {
   const [calculating, setCalculating] = useState(false);
   const [calculatedPaie, setCalculatedPaie] = useState([]);
   const [semaine, setSemaine] = useState('');
+  const [annee, setAnnee] = useState(new Date().getFullYear().toString());
   const [datePaie, setDatePaie] = useState(new Date().toISOString().split('T')[0]);
   const [dateDebut, setDateDebut] = useState('');
   const [dateFin, setDateFin] = useState('');
@@ -73,12 +74,33 @@ export default function CalculPaie() {
     return wNum ? `Sem ${wNum}` : '-';
   };
 
+  const getUniqueYears = () => {
+    const allRecords = [...pointages, ...paies, ...calculatedPaie];
+    const years = new Set();
+    allRecords.forEach(r => {
+      if (r.date_pointage) years.add(r.date_pointage.substring(0, 4));
+      else if (r.date) years.add(r.date.substring(0, 4));
+      else if (r.semaine && r.semaine.includes('-S')) years.add(r.semaine.split('-S')[0]);
+    });
+    const currentYear = new Date().getFullYear().toString();
+    years.add(currentYear);
+    if (annee) years.add(annee);
+    return Array.from(years).sort().reverse();
+  };
+
   const getUniqueWeekOptions = () => {
     const allRecords = [...pointages, ...paies, ...calculatedPaie];
-    const uniqueWeeks = [...new Set([
+    let uniqueWeeks = [...new Set([
       ...allRecords.map(r => r.semaine),
       semaine
-    ].filter(Boolean))].sort().reverse();
+    ].filter(Boolean))];
+    
+    // Filter by selected year if applicable (expecting 'YYYY-SXX' format)
+    if (annee) {
+      uniqueWeeks = uniqueWeeks.filter(w => w.startsWith(annee + '-'));
+    }
+    
+    uniqueWeeks = uniqueWeeks.sort().reverse();
 
     return uniqueWeeks.map((weekVal) => ({
       value: weekVal,
@@ -215,6 +237,35 @@ export default function CalculPaie() {
     }
   };
 
+  // Fonction helper robuste pour vérifier si un pointage ou une paie appartient à la semaine/période ciblée
+  const isRecordInCurrentSelection = (p, targetSem = semaine) => {
+    if (!p) return false;
+    const pSem = String(p.semaine || '').trim().toLowerCase();
+    const selSem = String(targetSem || '').trim().toLowerCase();
+    const extractParts = (str) => {
+      const parts = str.split('-');
+      if (parts.length > 1) return { year: parts[0], week: parts[1] };
+      return { year: null, week: parts[0] };
+    };
+    const pParts = extractParts(pSem);
+    const selParts = extractParts(selSem);
+    
+    if (selParts.week && pParts.week && pParts.week === selParts.week) {
+      if (pParts.year && selParts.year) return pParts.year === selParts.year;
+      return true;
+    }
+    if (dateDebut && dateFin && p.date) {
+      const dStr = String(p.date).split('T')[0];
+      if (dStr >= String(dateDebut).split('T')[0] && dStr <= String(dateFin).split('T')[0]) return true;
+    }
+    if (dateDebut && dateFin && p.date_debut && p.date_fin) {
+      const dStart = String(p.date_debut).split('T')[0];
+      const dEnd = String(p.date_fin).split('T')[0];
+      if (dStart === String(dateDebut).split('T')[0] && dEnd === String(dateFin).split('T')[0]) return true;
+    }
+    return false;
+  };
+
   const calculateLoyer = (ouvrierId) => {
     const payDate = datePaie ? new Date(datePaie) : new Date();
     const currentMonth = payDate.toLocaleString('fr-FR', { month: 'long' }).toLowerCase();
@@ -301,30 +352,10 @@ export default function CalculPaie() {
       const savedMetaStr = localStorage.getItem('gebat_last_import_meta');
       if (savedMetaStr) savedMeta = JSON.parse(savedMetaStr);
     } catch (e) {}
-    const importedWorkerIds = savedMeta && Array.isArray(savedMeta.workerIds) ? savedMeta.workerIds : null;
 
-    // Fonction helper robuste pour vérifier si un pointage ou une paie appartient à la semaine/période sélectionnée
-    const isRecordInCurrentSelection = (p) => {
-      if (!p) return false;
-      const pSem = String(p.semaine || '').trim().toLowerCase();
-      const selSem = String(semaine || '').trim().toLowerCase();
-      if (selSem && pSem && (pSem === selSem || pSem.includes(selSem) || selSem.includes(pSem))) return true;
-      if (dateDebut && dateFin && p.date) {
-        const dStr = String(p.date).split('T')[0];
-        if (dStr >= String(dateDebut).split('T')[0] && dStr <= String(dateFin).split('T')[0]) return true;
-      }
-      if (dateDebut && dateFin && p.date_debut && p.date_fin) {
-        const dStart = String(p.date_debut).split('T')[0];
-        const dEnd = String(p.date_fin).split('T')[0];
-        if (dStart === String(dateDebut).split('T')[0] && dEnd === String(dateFin).split('T')[0]) return true;
-      }
-      return false;
-    };
-
-    // Vérifier s'il y a des données importées/enregistrées pour la semaine ou période sélectionnée
+    // Vérifier s'il y a des données enregistrées pour la semaine ou période sélectionnée
     const hasWeekData = pointages.some(p => isRecordInCurrentSelection(p)) ||
-                        paies.some(p => isRecordInCurrentSelection(p)) ||
-                        Boolean(importedWorkerIds && importedWorkerIds.length > 0);
+                        paies.some(p => isRecordInCurrentSelection(p));
 
     // On part de la liste de tous les ouvriers de la base, filtrés par site et qualification
     let targetOuvriers = ouvriers.filter(o => {
@@ -333,19 +364,17 @@ export default function CalculPaie() {
         const oSite = String(o.site || '').trim().toLowerCase();
         const sFilter = String(siteFilter).trim().toLowerCase();
         const hasPointageOnSiteThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p) && String(p.site || '').trim().toLowerCase() === sFilter);
-        const isPartOfSiteImport = importedWorkerIds && importedWorkerIds.includes(Number(o.id)) && savedMeta && String(savedMeta.site || '').trim().toLowerCase() === sFilter;
-        if (oSite !== sFilter && !hasPointageOnSiteThisWeek && !isPartOfSiteImport) {
+        if (oSite !== sFilter && !hasPointageOnSiteThisWeek) {
           return false;
         }
       }
       if (qualificationFilter && String(o.qualification || '').trim().toLowerCase() !== String(qualificationFilter).trim().toLowerCase()) return false;
       
-      // Si la semaine sélectionnée a des pointages ou paies ou a juste été importée, on affiche UNIQUEMENT les ouvriers de cette sélection !
+      // Si la semaine sélectionnée a des pointages ou paies, on affiche UNIQUEMENT les ouvriers de cette sélection !
       if (semaine && hasWeekData) {
         const hasPointageThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
         const hasPaieThisWeek = paies.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
-        const isPartOfImport = importedWorkerIds && importedWorkerIds.includes(Number(o.id));
-        if (!hasPointageThisWeek && !hasPaieThisWeek && !isPartOfImport) {
+        if (!hasPointageThisWeek && !hasPaieThisWeek) {
           return false;
         }
       }
@@ -362,7 +391,13 @@ export default function CalculPaie() {
       const existingPaie = paies.find(p => 
         Number(p.ouvrier_id) === Number(ouvrier.id) && isRecordInCurrentSelection(p)
       );
-      const isPaidLocked = Boolean(existingPaie && existingPaie.paye === true);
+      const isPaidLocked = Boolean(existingPaie && (
+        existingPaie.paye === true || 
+        existingPaie.paye == 1 || 
+        existingPaie.paye === '1' || 
+        existingPaie.paye === 'true' ||
+        (existingPaie.paye && existingPaie.paye.type === 'Buffer' && existingPaie.paye.data && existingPaie.paye.data[0] === 1)
+      ));
       const isDejaPaye = isPaidLocked;
 
       // 3. Déterminer le salaire brut de la semaine ('étant donné qu'il y'a déjà des noms dans la base avec un montant, pour chaque semaine il doit avoir un nouveau montant à payer')
@@ -452,7 +487,7 @@ export default function CalculPaie() {
             const lost = Number(ouvrier.epi_lost_amount) || 0;
             const workerPonctionsList = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrier.id) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
             const regTotal = workerPonctionsList.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
-            epiDeduction = Math.max(0, lost - regTotal);
+            epiDeduction = 0; // Aucune déduction supplémentaire demandée
           } else if (existingPaie && Number(existingPaie.epi_deduction) > 0) {
             epiDeduction = Number(existingPaie.epi_deduction);
           } else {
@@ -660,9 +695,22 @@ export default function CalculPaie() {
         }
       }
 
+      // Update local state instead of clearing it
+      setCalculatedPaie(prev => prev.map(paie => {
+        if (paiesToSave.some(p => p.ouvrier_id === paie.ouvrier_id)) {
+          return { ...paie, deja_paye: true, paye: true };
+        }
+        return paie;
+      }));
+
+      // Auto export Wave file
+      handleExportWave(paiesToSave);
+
       alert(`Paie de ${paiesToSave.length} ouvrier(s) enregistrée et marquée payée avec succès !`);
-      setCalculatedPaie([]);
-      navigate('/historique');
+
+      // Mettre à jour les données depuis le serveur pour refléter la BD
+      await fetchData();
+
     } catch (error) {
       console.error('Error saving paie:', error);
       alert('Erreur lors de l\'enregistrement');
@@ -955,8 +1003,9 @@ export default function CalculPaie() {
     doc.save(`Calcul_Paie_${semaine || 'Semaine'}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
-  const handleExportWave = () => {
-    const waveRows = displayedPaie
+  const handleExportWave = (dataToExport = displayedPaie) => {
+    const listToExport = Array.isArray(dataToExport) ? dataToExport : displayedPaie;
+    const waveRows = listToExport
       .filter(p => Number(p.net_a_payer) > 0)
       .map(paie => {
         const fullName = `${paie.nom || ''} ${paie.prenom || ''}`.trim();
@@ -1030,8 +1079,8 @@ export default function CalculPaie() {
           }
         });
       } else {
-        const paiesForWeek = paies.filter(p => String(p.semaine || '').trim().toLowerCase() === String(weekVal).trim().toLowerCase());
-        const pointagesForWeek = pointages.filter(p => String(p.semaine || '').trim().toLowerCase() === String(weekVal).trim().toLowerCase());
+        const paiesForWeek = paies.filter(p => isRecordInCurrentSelection(p, weekVal));
+        const pointagesForWeek = pointages.filter(p => isRecordInCurrentSelection(p, weekVal));
         
         const workerIdsInWeek = [...new Set([
           ...paiesForWeek.map(p => Number(p.ouvrier_id)),
@@ -1051,7 +1100,8 @@ export default function CalculPaie() {
           totalWorkersCount++;
           const pRecord = paiesForWeek.find(p => Number(p.ouvrier_id) === oId);
           if (pRecord) {
-            if (!pRecord.paye && !pRecord.deja_paye) {
+            const isRecPaid = pRecord.paye === true || pRecord.paye === 1 || pRecord.paye === '1' || pRecord.deja_paye === true;
+            if (!isRecPaid) {
               pendingAmount += (Number(pRecord.net_a_payer) || 0);
               pendingWorkersCount++;
               if (pRecord.site || worker?.site) sitesSet.add(pRecord.site || worker?.site);
@@ -1079,10 +1129,13 @@ export default function CalculPaie() {
         sites: Array.from(sitesSet).filter(Boolean),
         isSelected: weekVal === semaine
       };
-    }).filter(summary => summary.totalWorkersCount > 0 && (summary.pendingWorkersCount > 0 || summary.isSelected));
+    });
   };
 
-  const pendingWeeks = getWeeksPendingSummaries();
+  const allWeeksSummaries = getWeeksPendingSummaries().filter(summary => summary.totalWorkersCount > 0);
+  const pendingWeeks = allWeeksSummaries.filter(w => w.pendingWorkersCount > 0);
+  const settledWeeks = allWeeksSummaries.filter(w => w.pendingWorkersCount === 0);
+
   const globalTotalPendingAmount = pendingWeeks.reduce((sum, w) => sum + (Number(w.pendingAmount) || 0), 0);
   const globalTotalPendingWorkers = pendingWeeks.reduce((sum, w) => sum + (Number(w.pendingWorkersCount) || 0), 0);
 
@@ -1146,7 +1199,27 @@ export default function CalculPaie() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-5">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
+              <Calendar size={14} className="text-emerald-600" /> Année
+            </label>
+            <select
+              className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-black text-gray-900 focus:bg-white focus:border-emerald-500"
+              value={annee}
+              onChange={(e) => {
+                setAnnee(e.target.value);
+                setSemaine(''); // Reset week when year changes
+              }}
+            >
+              {getUniqueYears().map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div>
             <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5">
               <Calendar size={14} className="text-emerald-600" /> Numéro de Semaine
@@ -1353,7 +1426,9 @@ export default function CalculPaie() {
 
           {/* Section Paiements en Attente / Non effectués & Filtrage */}
           <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 border-2 border-amber-400/40 rounded-3xl p-6 shadow-md">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {pendingWeeks.length > 0 && (
+              <>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div className="flex items-start gap-4">
                 <div className="p-3 bg-amber-500 text-white rounded-2xl shadow-md flex-shrink-0">
                   <Clock size={26} className="stroke-[2.5]" />
@@ -1407,27 +1482,21 @@ export default function CalculPaie() {
                 </span>
               </div>
 
-              {pendingWeeks.length === 0 ? (
-                <div className="bg-white/80 rounded-2xl p-6 text-center border border-amber-200">
-                  <CheckCircle2 size={28} className="text-emerald-500 mx-auto mb-2" />
-                  <p className="font-bold text-gray-800 text-sm">Aucun paiement en attente !</p>
-                  <p className="text-xs text-gray-500 mt-0.5">Toutes les semaines enregistrées ont été réglées ou ne contiennent pas d'ouvriers en attente.</p>
-                </div>
-              ) : (
+              {pendingWeeks.length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                   {pendingWeeks.map(weekSummary => (
-                    <div
-                      key={weekSummary.semaine}
-                      onClick={() => {
-                        setSemaine(weekSummary.semaine);
-                        setStatutFilter('en_attente');
-                      }}
-                      className={`relative overflow-hidden rounded-2xl p-4 transition-all duration-300 transform hover:-translate-y-1 cursor-pointer border-2 shadow-md flex flex-col justify-between group ${
-                        weekSummary.isSelected
-                          ? 'bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 text-white border-amber-300 shadow-orange-500/25 scale-[1.02] ring-4 ring-amber-400/30'
-                          : 'bg-white/95 hover:bg-white text-gray-900 border-amber-300/80 shadow-amber-500/5 hover:border-amber-500 hover:shadow-lg'
-                      }`}
-                    >
+                      <div
+                        key={weekSummary.semaine}
+                        onClick={() => {
+                          setSemaine(weekSummary.semaine);
+                          setStatutFilter('en_attente');
+                        }}
+                        className={`relative overflow-hidden rounded-2xl p-5 min-h-[180px] transition-all duration-300 transform hover:-translate-y-1 cursor-pointer border-2 shadow-md flex flex-col justify-between group ${
+                          weekSummary.isSelected
+                            ? 'bg-gradient-to-br from-amber-600 via-orange-500 to-amber-700 text-white border-amber-300 shadow-orange-500/25 scale-[1.02] ring-4 ring-amber-400/30'
+                            : 'bg-white/95 hover:bg-white text-gray-900 border-amber-300/80 shadow-amber-500/5 hover:border-amber-500 hover:shadow-lg'
+                        }`}
+                      >
                       {/* Top Badge & Week Title */}
                       <div>
                         <div className="flex items-center justify-between gap-2 mb-2">
@@ -1449,7 +1518,7 @@ export default function CalculPaie() {
                           )}
                         </div>
 
-                        <h6 className={`font-black text-sm leading-tight mt-1 truncate ${
+                        <h6 className={`font-black text-sm leading-snug mt-2 ${
                           weekSummary.isSelected ? 'text-white' : 'text-gray-900'
                         }`}>
                           {weekSummary.intervalle || weekSummary.label}
@@ -1504,9 +1573,109 @@ export default function CalculPaie() {
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+              </>
+            )}
 
-            {/* Onglets de basculement */}
+            {/* Grille des Cartes par Semaine : Déjà Réglés */}
+            <div className={pendingWeeks.length > 0 ? "mt-8 pt-6 border-t-2 border-emerald-300/40" : ""}>
+              <div className="flex items-center justify-between mb-3">
+                <h5 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600" />
+                  Semaines entièrement réglées :
+                </h5>
+                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
+                  {settledWeeks.length} semaine(s) concernée(s)
+                </span>
+              </div>
+
+              {settledWeeks.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {settledWeeks.map(weekSummary => (
+                    <div
+                      key={weekSummary.semaine}
+                      onClick={() => {
+                        setSemaine(weekSummary.semaine);
+                        setStatutFilter('regles');
+                      }}
+                      className={`relative overflow-hidden rounded-2xl p-5 min-h-[180px] transition-all duration-300 transform hover:-translate-y-1 cursor-pointer border-2 shadow-sm flex flex-col justify-between group ${
+                        weekSummary.isSelected
+                          ? 'bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-700 text-white border-emerald-300 shadow-emerald-500/25 scale-[1.02] ring-4 ring-emerald-400/30'
+                          : 'bg-emerald-50/50 hover:bg-emerald-50 text-gray-900 border-emerald-200 shadow-emerald-500/5 hover:border-emerald-400 hover:shadow-md'
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 mb-2">
+                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
+                            weekSummary.isSelected
+                              ? 'bg-white/20 text-white border border-white/30'
+                              : 'bg-emerald-100 text-emerald-900 border border-emerald-200 font-mono'
+                          }`}>
+                            {weekSummary.semaine}
+                          </span>
+                          {weekSummary.isSelected ? (
+                            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-full text-emerald-100">
+                              <Sparkles size={11} className="animate-pulse text-emerald-300" /> Affichée
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-extrabold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
+                              Cliquer pour voir
+                            </span>
+                          )}
+                        </div>
+
+                        <h6 className={`font-black text-sm leading-snug mt-2 ${
+                          weekSummary.isSelected ? 'text-white' : 'text-gray-900'
+                        }`}>
+                          {weekSummary.intervalle || weekSummary.label}
+                        </h6>
+
+                        {weekSummary.sites.length > 0 && (
+                          <div className="flex items-center gap-1 mt-2 flex-wrap">
+                            {weekSummary.sites.map(s => (
+                              <span key={s} className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 uppercase ${
+                                weekSummary.isSelected ? 'bg-emerald-900/40 text-emerald-100' : 'bg-white text-gray-700 border border-gray-200'
+                              }`}>
+                                <Building2 size={10} /> {s}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-current/15 flex items-end justify-between gap-2">
+                        <div>
+                          <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-0.5 ${
+                            weekSummary.isSelected ? 'text-emerald-100' : 'text-emerald-800'
+                          }`}>
+                            Statut
+                          </span>
+                          <span className={`text-sm font-black flex items-center gap-1 ${
+                            weekSummary.isSelected ? 'text-white' : 'text-emerald-600'
+                          }`}>
+                            <CheckCircle2 size={14} /> Payé intégralement
+                          </span>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-0.5 ${
+                            weekSummary.isSelected ? 'text-emerald-100' : 'text-gray-500'
+                          }`}>
+                            Ouvriers
+                          </span>
+                          <span className={`text-xs font-black px-2.5 py-1 rounded-xl block ${
+                            weekSummary.isSelected
+                              ? 'bg-white text-emerald-600 shadow-sm'
+                              : 'bg-emerald-100 text-emerald-900 group-hover:bg-emerald-200'
+                          }`}>
+                            {weekSummary.totalWorkersCount} <span className="text-[10px] font-semibold opacity-75">réglés</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-amber-300/40">
               <span className="text-xs font-black text-amber-950 mr-2 flex items-center gap-1">
                 <Filter size={14} className="text-amber-600" /> Affichage du tableau :
@@ -1585,7 +1754,7 @@ export default function CalculPaie() {
                     displayedPaie.map((paie) => {
                       const origIndex = calculatedPaie.indexOf(paie);
                       return (
-                    <tr key={paie.pointage_id || paie.ouvrier_id || origIndex} className="hover:bg-emerald-50/30 transition-colors">
+                    <tr key={paie.pointage_id || paie.ouvrier_id || origIndex} className={`transition-colors border-b border-gray-100 ${paie.deja_paye ? 'bg-emerald-50/30 hover:bg-emerald-100/50' : 'bg-red-50/40 hover:bg-red-100/60'}`}>
                       <td className="py-3.5 px-3 font-black text-gray-900 text-sm">
                         {paie.nom} {paie.prenom}
                       </td>

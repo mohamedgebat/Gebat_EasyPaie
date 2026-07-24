@@ -239,7 +239,7 @@ function PonctionsContent() {
         };
       case 'epi_perdu': {
         const remb = Math.max(0, total - lost);
-        const ded = Math.max(0, lost - total);
+        const ded = 0; // Modification demandée : pas de déduction supplémentaire en cas de perte
         return {
           remboursement: remb,
           deduction: ded,

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, Fragment } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiFetch } from '../lib/api';
 import { 
   Upload, Download, FileSpreadsheet, Loader2, AlertCircle, CheckCircle2, 
@@ -20,6 +21,7 @@ const STANDARD_DEPARTMENTS = [
 ];
 
 export default function Conversion() {
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -599,103 +601,13 @@ export default function Conversion() {
     });
   };
 
-  const handleSaveToDatabase = async () => {
+  const handleSaveToDatabase = () => {
     if (updatedWorkers.length === 0) {
       alert('Aucune donnée à enregistrer.');
       return;
     }
-
-    setIsSaving(true);
-    try {
-      const workerResponse = await apiFetch('/api/ouvriers');
-      let dbWorkers = await workerResponse.json();
-      
-      const pointagesResponse = await apiFetch('/api/pointages');
-      let dbPointages = await pointagesResponse.json();
-      
-      const importedWorkerIds = [];
-      
-      for (const w of updatedWorkers) {
-        const workerName = w.name;
-        let worker = dbWorkers.find(dbw => 
-          dbw.nom.toLowerCase() === workerName.toLowerCase() || 
-          `${dbw.nom} ${dbw.prenom}`.toLowerCase().trim() === workerName.toLowerCase() ||
-          dbw.matricule === workerName
-        );
-
-        if (!worker) {
-          const newWorkerRes = await apiFetch('/api/ouvriers', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              matricule: `OUV-${Date.now().toString().slice(-4)}-${Math.floor(Math.random()*100)}`,
-              nom: workerName,
-              prenom: '',
-              telephone: '',
-              site: siteName || 'SONGON',
-              qualification: w.dept || 'AIDE CHANTIER',
-              operateur: 'Wave',
-              numero_mobile_money: '',
-              date_entree: new Date().toISOString().split('T')[0],
-              statut: 'actif'
-            })
-          });
-          worker = await newWorkerRes.json();
-          if (worker && worker.id) dbWorkers.push(worker);
-        }
-
-        if (worker && worker.id) {
-          importedWorkerIds.push(worker.id);
-          
-          const existingPointage = dbPointages.find(p => p.ouvrier_id === worker.id && p.semaine === (dateRangeStr || ''));
-          
-          if (existingPointage) {
-            await apiFetch(`/api/pointages/${existingPointage.id}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                salaire_brut: Number(w.netPay) || 0,
-                site: siteName || worker.site || 'SONGON'
-              }),
-            });
-          } else {
-            await apiFetch('/api/pointages', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                ouvrier_id: worker.id,
-                date: new Date().toISOString().split('T')[0],
-                date_debut: null,
-                date_fin: null,
-                semaine: dateRangeStr || '',
-                salaire_brut: Number(w.netPay) || 0,
-                site: siteName || worker.site || 'SONGON'
-              }),
-            });
-          }
-        }
-      }
-
-      try {
-        localStorage.setItem('gebat_last_import_meta', JSON.stringify({
-          site: siteName || 'SONGON',
-          semaine: dateRangeStr || '',
-          dateDebut: '',
-          dateFin: '',
-          label: dateRangeStr || '',
-          workerIds: importedWorkerIds,
-          timestamp: Date.now()
-        }));
-        window.dispatchEvent(new Event('gebat_import_updated'));
-      } catch (e) {}
-
-      alert('Enregistrement réussi ! Toutes les fiches ont été enregistrées en base.');
-    } catch (error) {
-      console.error('Error saving:', error);
-      alert('Erreur lors de l\'enregistrement en base de données.');
-    } finally {
-      setIsSaving(false);
-    }
+    alert('Le fichier est prêt ! Vous allez être redirigé vers la page d\'Import Pointage pour détecter les nouveaux ouvriers et enregistrer les données.');
+    navigate('/import-pointage', { state: { importedData: updatedWorkers, siteName, dateRangeStr } });
   };
 
   // EXCEL EXPORT (100% compliant with target file structure)
@@ -1072,11 +984,10 @@ export default function Conversion() {
             </button>
             <button
               onClick={handleSaveToDatabase}
-              disabled={isSaving}
-              className={`px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2.5 transform active:scale-95 transition-all duration-200 ${isSaving ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className="px-6 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-xl shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-2.5 transform active:scale-95 transition-all duration-200"
             >
-              {isSaving ? <Loader2 size={20} className="animate-spin" /> : <Sparkles size={20} />}
-              {isSaving ? 'Enregistrement...' : 'Enregistrer dans la Base'}
+              <Sparkles size={20} />
+              Continuer vers l'Import & Détection
             </button>
           </div>
         )}

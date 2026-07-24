@@ -1,5 +1,6 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Upload, Check, AlertCircle, Plus, FileText, FileSpreadsheet, 
   Loader2, Calendar, Users, ArrowRight, CheckCircle2, ShieldAlert, 
@@ -31,6 +32,63 @@ export default function ImportPointage() {
     numero_mobile_money: '',
     statut: 'actif',
   });
+
+  const location = useLocation();
+
+  useEffect(() => {
+    if (location.state && location.state.importedData) {
+      const { importedData, siteName, dateRangeStr } = location.state;
+      
+      const grouped = {};
+      importedData.forEach(w => {
+        const sheetName = w.dept || 'AIDE CHANTIER';
+        if (!grouped[sheetName]) grouped[sheetName] = [];
+        
+        grouped[sheetName].push({
+          id: Math.random().toString(36).substr(2, 9),
+          nom: w.name,
+          'NOM ET PRENOMS': w.name,
+          qualification: sheetName,
+          salaire_brut: w.netPay || w.totalRate,
+          salaire: w.netPay || w.totalRate,
+          'NET A PAYER': w.netPay || w.totalRate,
+          jours: w.normalDays || 0,
+          worker_id: null
+        });
+      });
+
+      if (siteName) {
+        setDetectedSite(siteName);
+        setNewWorkerData(prev => ({ ...prev, site: siteName }));
+      }
+
+      if (dateRangeStr) {
+        setExtractedDates(prev => ({ ...prev, semaine: dateRangeStr, label: dateRangeStr }));
+        try {
+          localStorage.setItem('gebat_last_import_meta', JSON.stringify({
+            site: siteName || 'SONGON',
+            semaine: dateRangeStr || '',
+            dateDebut: '',
+            dateFin: '',
+            label: dateRangeStr || '',
+            timestamp: Date.now()
+          }));
+        } catch (e) {}
+      }
+
+      setSheetsData(grouped);
+      
+      const firstSheet = Object.keys(grouped)[0];
+      if (firstSheet) {
+        setSelectedSheet(firstSheet);
+        setPreviewData(grouped[firstSheet]);
+        checkWorkers(grouped[firstSheet]);
+      }
+      
+      // Clear location state to prevent re-triggering
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state]);
 
   const getKnownSites = () => {
     const defaultSites = ['SONGON', 'BINGERVILLE', 'JACQUEVILLE', 'ABOBO', 'COCODY', 'YAMOUSSOUKRO', 'SAN-PEDRO', 'GRAND-BASSAM', 'PORT-BOUET', 'PLATEAU'];
@@ -338,6 +396,27 @@ export default function ImportPointage() {
     checkWorkers(sheetsData[sheetName]);
   };
 
+  const handleDeleteSheet = (e, sheetName) => {
+    e.stopPropagation();
+    if (!window.confirm(`Êtes-vous sûr de vouloir retirer "${sheetName}" de l'importation ?`)) return;
+
+    const newSheetsData = { ...sheetsData };
+    delete newSheetsData[sheetName];
+    setSheetsData(newSheetsData);
+
+    if (selectedSheet === sheetName) {
+      const remainingSheets = Object.keys(newSheetsData);
+      if (remainingSheets.length > 0) {
+        handleSheetChange(remainingSheets[0]);
+      } else {
+        setSelectedSheet(null);
+        setPreviewData([]);
+        setUnknownWorkers([]);
+        setExistingWorkers([]);
+      }
+    }
+  };
+
   const addUnknownWorker = async (workerData) => {
     try {
       const response = await apiFetch('/api/ouvriers', {
@@ -412,6 +491,10 @@ export default function ImportPointage() {
       const mergedData = mergeWorkersAcrossSheets(sheetsData);
       const workerResponse = await apiFetch('/api/ouvriers');
       let workers = await workerResponse.json();
+      
+      const pointagesResponse = await apiFetch('/api/pointages');
+      let dbPointages = await pointagesResponse.json();
+      
       const importedWorkerIds = [];
       
       for (const row of mergedData) {
@@ -459,19 +542,33 @@ export default function ImportPointage() {
           
           const finalBrut = calculatedBrut > 0 ? calculatedBrut : rawTotal;
 
-          await apiFetch('/api/pointages', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ouvrier_id: worker.id,
-              date: extractedDates.debut || new Date().toISOString().split('T')[0],
-              date_debut: extractedDates.debut || null,
-              date_fin: extractedDates.fin || null,
-              semaine: extractedDates.semaine || '',
-              salaire_brut: finalBrut,
-              site: detectedSite || worker.site || 'SONGON'
-            }),
-          });
+          const semaineStr = extractedDates.semaine || '';
+          const existingPointage = dbPointages.find(p => p.ouvrier_id === worker.id && p.semaine === semaineStr);
+
+          if (existingPointage) {
+            await apiFetch(`/api/pointages/${existingPointage.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                salaire_brut: finalBrut,
+                site: detectedSite || worker.site || 'SONGON'
+              }),
+            });
+          } else {
+            await apiFetch('/api/pointages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                ouvrier_id: worker.id,
+                date: extractedDates.debut || new Date().toISOString().split('T')[0],
+                date_debut: extractedDates.debut || null,
+                date_fin: extractedDates.fin || null,
+                semaine: semaineStr,
+                salaire_brut: finalBrut,
+                site: detectedSite || worker.site || 'SONGON'
+              }),
+            });
+          }
         }
       }
 
@@ -732,18 +829,30 @@ export default function ImportPointage() {
               </h3>
               <div className="flex flex-wrap gap-2.5">
                 {Object.keys(sheetsData).map((sheetName) => (
-                  <button
-                    key={sheetName}
-                    onClick={() => handleSheetChange(sheetName)}
-                    className={`px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all ${
-                      selectedSheet === sheetName
-                        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20 scale-105'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
-                  >
-                    <FileText size={15} className={selectedSheet === sheetName ? 'text-amber-300' : 'text-gray-400'} />
-                    {sheetName} ({sheetsData[sheetName].length})
-                  </button>
+                  <div key={sheetName} className="flex items-center">
+                    <button
+                      onClick={() => handleSheetChange(sheetName)}
+                      className={`px-4 py-2.5 rounded-l-xl font-bold text-xs flex items-center gap-2 transition-all ${
+                        selectedSheet === sheetName
+                          ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-500/20'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      <FileText size={15} className={selectedSheet === sheetName ? 'text-amber-300' : 'text-gray-400'} />
+                      {sheetName} ({sheetsData[sheetName].length})
+                    </button>
+                    <button
+                      onClick={(e) => handleDeleteSheet(e, sheetName)}
+                      className={`px-2.5 py-2.5 rounded-r-xl transition-all border-l flex items-center justify-center ${
+                        selectedSheet === sheetName 
+                          ? 'bg-teal-600 border-teal-700 hover:bg-red-500 text-white' 
+                          : 'bg-gray-100 border-white hover:bg-red-500 hover:text-white text-gray-400'
+                      }`}
+                      title="Retirer cette feuille"
+                    >
+                      <X size={15} strokeWidth={3} />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>

@@ -401,7 +401,7 @@ export default function Dashboard() {
             const lost = Number(ouvrier.epi_lost_amount) || 0;
             const workerPonctionsList = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrier.id) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
             const regTotal = workerPonctionsList.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
-            epiDeduction = Math.max(0, lost - regTotal);
+            epiDeduction = 0; // Aucune déduction supplémentaire demandée
           } else if (existingPaie && Number(existingPaie.epi_deduction) > 0) {
             epiDeduction = Number(existingPaie.epi_deduction);
           } else {

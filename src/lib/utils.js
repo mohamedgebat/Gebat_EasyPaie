@@ -53,11 +53,14 @@ export function formatShortDate(dateVal) {
 
 export function formatWeekLabel(weekStr, records = []) {
   if (!weekStr) return '-';
+  const yearPart = weekStr.includes('-S') ? weekStr.split('-S')[0] : '';
   const wNum = weekStr.includes('-S') ? weekStr.split('-S')[1] : weekStr;
   
+  const yearPrefix = yearPart ? `${yearPart} - ` : '';
+
   const recWithInterval = records.find(r => r.semaine === weekStr && r.date_debut && r.date_fin);
   if (recWithInterval) {
-    return `Sem ${wNum} (${formatShortDate(recWithInterval.date_debut)} au ${formatShortDate(recWithInterval.date_fin)})`;
+    return `${yearPrefix}Sem ${wNum} (${formatShortDate(recWithInterval.date_debut)} au ${formatShortDate(recWithInterval.date_fin)})`;
   }
 
   const recWithDate = records.find(r => r.semaine === weekStr && (r.date_pointage || r.date));
@@ -68,7 +71,7 @@ export function formatWeekLabel(weekStr, records = []) {
       const diffToFriday = day >= 5 ? (5 - day) : (-2 - day);
       const friday = new Date(new Date(d).setDate(d.getDate() + diffToFriday));
       const thursday = new Date(new Date(friday).setDate(friday.getDate() + 6));
-      return `Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
+      return `${yearPrefix}Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
     }
   }
 
@@ -88,12 +91,12 @@ export function formatWeekLabel(weekStr, records = []) {
         }
         const friday = new Date(new Date(isoWeekStart).setDate(isoWeekStart.getDate() - 3));
         const thursday = new Date(new Date(friday).setDate(friday.getDate() + 6));
-        return `Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
+        return `${yearPrefix}Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
       }
     } catch (e) {}
   }
 
-  return `Sem ${wNum}`;
+  return `${yearPrefix}Sem ${wNum}`;
 }
 
 export function getWeekDateRange(weekStr, records = []) {

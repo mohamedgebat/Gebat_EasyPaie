@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   Home, Users, FileText, Shield, Building2, Calculator, 
   History, BarChart3, Settings, Menu, LogOut, Layers,
-  ChevronLeft, ChevronRight, Sparkles, ShieldCheck, UserCheck
+  ChevronLeft, ChevronRight, Sparkles, ShieldCheck, UserCheck, Upload
 } from 'lucide-react';
 import gebatLogo from '../assets/logo_gebat.png';
 
@@ -14,6 +14,7 @@ const allNavGroups = [
     items: [
       { path: '/', label: 'Tableau de bord', icon: Home, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier', 'Auditeur'] },
       { path: '/ouvriers', label: 'Gestion des Ouvriers', icon: Users, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
+      { path: '/import-pointage', label: 'Import du Pointage', icon: Upload, roles: ['Administrateur', 'Gestionnaire Paie', 'Contrôleur Chantier'] },
       { path: '/conversion', label: 'Pointage & Édition', icon: Layers, roles: ['Administrateur', 'Contrôleur Chantier'] },
     ]
   },
