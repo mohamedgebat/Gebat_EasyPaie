@@ -264,9 +264,98 @@ export default function ImportPointage() {
     return false;
   };
 
+  const timeToMinutes = (timeStr) => {
+    if (!timeStr || timeStr === '--:--' || typeof timeStr !== 'string') return null;
+    const [h, m] = timeStr.split(':');
+    if (h === undefined || m === undefined) return null;
+    return parseInt(h) * 60 + parseInt(m);
+  };
+
+  const calculateHikCentralDays = (row, headers) => {
+    const times = [];
+    ['Entrée 1', 'Sortie 1', 'Entrée 2', 'Sortie 2', 'Entrée 3', 'Sortie 3'].forEach(col => {
+      const idx = headers.indexOf(col);
+      if (idx !== -1) {
+        const min = timeToMinutes(row[idx]);
+        if (min !== null) times.push(min);
+      }
+    });
+
+    if (times.length === 0) return 0;
+    
+    const earliest = Math.min(...times);
+    const latest = Math.max(...times);
+    
+    let days = 0;
+    // Morning shift: from ~08:00 to ~12:30 (Arrive <= 10:00, Leave >= 12:00)
+    if (earliest <= 10 * 60 && latest >= 12 * 60) {
+      days += 0.5;
+    }
+    
+    // Afternoon shift: from ~13:00 to ~17:30 (Arrive <= 14:30, Leave >= 16:00)
+    if (earliest <= 14.5 * 60 && latest >= 16 * 60) {
+      days += 0.5;
+    }
+    
+    return days;
+  };
+
   const processSheetData = (rawData, sheetName) => {
-    // Check if it's ZKTeco format
-    const isZkteco = rawData[0] && rawData[0].some(cell => cell && cell.toString() === "Nom et prénoms") && rawData[0].some(cell => cell && cell.toString() === "Statut");
+    // Check if it's ZKTeco or HikCentral format
+    const isZktecoBase = rawData[0] && rawData[0].some(cell => cell && cell.toString() === "Nom et prénoms") && rawData[0].some(cell => cell && cell.toString() === "Statut");
+    const isHikCentral = isZktecoBase && rawData[0].some(cell => cell && cell.toString() === "Entrée 1");
+    const isZkteco = isZktecoBase && !isHikCentral;
+
+    if (isHikCentral) {
+      const workerMap = new Map();
+      const headers = rawData[0];
+      const nameIndex = headers.indexOf("Nom et prénoms");
+      const deptIndex = headers.indexOf("Département");
+      const statusIndex = headers.indexOf("Statut");
+      const idIndex = headers.indexOf("ID");
+
+      for (let i = 1; i < rawData.length; i++) {
+        const row = rawData[i];
+        if (!row || row.length === 0) continue;
+        const name = row[nameIndex];
+        if (!name || name === '') continue;
+
+        let worker = workerMap.get(name);
+        if (!worker) {
+          worker = {
+            'NOM ET PRENOMS': name,
+            'Qualification': row[deptIndex] || '',
+            'S/N': row[idIndex] || '',
+            'JOURS_TRAVAILLES': 0,
+            'TOTAL': 0,
+            'RETENUE EPI': 0,
+            'NET A PAYER': 0,
+            'isZkteco': true
+          };
+          workerMap.set(name, worker);
+        }
+
+        const days = calculateHikCentralDays(row, headers);
+        if (days > 0) {
+          worker['JOURS_TRAVAILLES'] += days;
+        } else {
+          // Fallback to basic presence if time calculation yields 0 but they are marked as present
+          const status = row[statusIndex];
+          if (status && typeof status === 'string' && (status.includes("Présent") || status.includes("Normal"))) {
+             worker['JOURS_TRAVAILLES'] += 1;
+          }
+        }
+      }
+
+      const dataRows = Array.from(workerMap.values());
+      const qualification = sheetName.replace(/FICHE D'EMARGEMENT DES /i, '').replace(/\/ SEMAINE.*/i, '').trim();
+      dataRows.forEach(row => {
+        if (!row.Qualification || row.Qualification.trim() === '') {
+          row.Qualification = qualification;
+        }
+      });
+      return dataRows.filter(row => row['JOURS_TRAVAILLES'] > 0);
+    }
 
     if (isZkteco) {
       const workerMap = new Map();
