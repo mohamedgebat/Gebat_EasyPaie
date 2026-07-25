@@ -29,7 +29,7 @@ const timeToMinutes = (timeStr) => {
 
 const calculateHikCentralDays = (row, headers) => {
   const times = [];
-  ['Entrée 1', 'Sortie 1', 'Entrée 2', 'Sortie 2', 'Entrée 3', 'Sortie 3'].forEach(col => {
+  ['Entrée 1', 'Sortie 1', 'Entrée 2', 'Sortie 2', 'Entrée 3', 'Sortie 3', 'Heures sup. entrée', 'Heures sup. sortie'].forEach(col => {
     const idx = headers.indexOf(col);
     if (idx !== -1) {
       const min = timeToMinutes(row[idx]);
@@ -247,7 +247,17 @@ export default function Conversion() {
       const siteFound = meta.site || detectSiteFromWorkbookAndFilename(workbook, targetFile.name);
       setSiteName(siteFound);
       if (meta.period.label) setDateRangeStr(meta.period.label);
-
+      
+      let dbWorkers = [];
+      try {
+        const res = await apiFetch('/api/ouvriers');
+        if (res.ok) {
+          dbWorkers = await res.json();
+        }
+      } catch (err) {
+        console.warn("Could not fetch DB workers", err);
+      }
+      
       try {
         localStorage.setItem('gebat_last_import_meta', JSON.stringify({
           site: siteFound,
@@ -384,7 +394,6 @@ export default function Conversion() {
           }
           
           const netPay = worker.totalWorkDays * baseRate;
-          if (netPay <= 0) continue;
           
           processedWorkers.push({
             id: String(worker.id),
@@ -498,12 +507,54 @@ export default function Conversion() {
           netPay: totalWorkDays * baseRate + totalOTAmount
         };
 
-        // Exclure les ouvriers avec un montant ou salaire net à 0 F CFA
-        if (workerObj.netPay <= 0) continue;
-
         processedWorkers.push(workerObj);
       }
       } // End of ZKTeco logic
+      
+      // Append DB workers that are missing
+      const siteFoundUpper = siteFound.toUpperCase();
+      const siteDbWorkers = dbWorkers.filter(w => (w.site || 'SONGON').toUpperCase() === siteFoundUpper && w.statut === 'actif');
+      
+      siteDbWorkers.forEach(w => {
+        const exists = processedWorkers.find(pw => pw.name.trim().toUpperCase() === w.nom.trim().toUpperCase());
+        if (!exists) {
+          let rawDept = (w.qualification || 'AIDE CHANTIER').trim();
+          let deptUpper = rawDept.toUpperCase();
+          let dept = rawDept;
+          if (deptUpper.includes('MACON') || deptUpper.includes('MAÇON')) dept = 'MACONS';
+          else if (deptUpper.includes('FERRAIL') || deptUpper.includes('FERAIL')) dept = 'FERRAILLEURS';
+          else if (deptUpper.includes('COFFR')) dept = 'COFFREURS';
+          else if (deptUpper.includes('PLOMB')) dept = 'PLOMBIERS';
+          else if (deptUpper.includes('ENGIN')) dept = "CONDUCTEUR D'ENGINS";
+          else if (deptUpper.includes('BETON') || deptUpper.includes('PAVE') || deptUpper.includes('PAVÉ')) dept = 'OPERATEUR BETONNIERE';
+          else if (deptUpper.includes('AIDE')) dept = 'AIDE CHANTIER';
+          else if (deptUpper.includes('GEBAT')) dept = 'GEBAT';
+          else dept = deptUpper;
+          
+          const isAide = String(dept || '').trim().toUpperCase().includes('AIDE');
+          const baseRate = isAide ? 4500 : (Number(dailyWage) || 7500);
+          
+          const dailyAttendance = [];
+          for (let d = 0; d < 7; d++) {
+            dailyAttendance.push({
+              dayIdx: d, dayName: parsedDays[d] || `Jour ${d+1}`, punches: [],
+              jrTravaille: 0, mtJournalier: 0, otHours: 0, otAmount: 0
+            });
+          }
+          
+          processedWorkers.push({
+            id: w.id || `db-${Date.now()}-${Math.random()}`,
+            name: w.nom,
+            dept,
+            dailyAttendance,
+            totalWorkDays: 0,
+            totalBasePay: 0,
+            totalOTHours: 0,
+            totalOTAmount: 0,
+            netPay: 0
+          });
+        }
+      });
 
       setWorkers(processedWorkers);
     } catch (err) {
