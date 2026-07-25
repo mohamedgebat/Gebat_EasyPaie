@@ -14,30 +14,21 @@ app.get('/api/health', (req, res) => res.status(200).send('OK'));
 // Temporary migration route for Railway
 app.get('/api/migrate-db', async (req, res) => {
   try {
-    const pool = db.getPool ? db.getPool() : (await import('./database.js')).default.pool;
-    if (!pool && !db.query) {
-      // Direct connection attempt if pool isn't exported
-      const mysql = await import('mysql2/promise');
-      const tempPool = mysql.createPool({
-        host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
-        user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-        password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
-        database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'gebat_easypaie',
-        port: Number(process.env.DB_PORT) || Number(process.env.MYSQLPORT) || 3306,
-      });
-      
-      // Ouvriers table
-      await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
-      await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_lost_amount DECIMAL(10,2) DEFAULT 0');
-      await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_settled BOOLEAN DEFAULT FALSE');
-      await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_refunded BOOLEAN DEFAULT FALSE');
-      await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_observations TEXT DEFAULT NULL');
-      
-      // Paies table
-      await tempPool.query('ALTER TABLE paies ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
-      
-      await tempPool.end();
+    const tempPool = db.pool;
+    if (!tempPool) {
+      throw new Error('Database pool not found');
     }
+    
+    // Ouvriers table
+    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
+    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_lost_amount DECIMAL(10,2) DEFAULT 0');
+    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_settled BOOLEAN DEFAULT FALSE');
+    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_refunded BOOLEAN DEFAULT FALSE');
+    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_observations TEXT DEFAULT NULL');
+    
+    // Paies table
+    await tempPool.query('ALTER TABLE paies ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
+    
     res.status(200).send('Migration successful: Columns added to Railway database!');
   } catch (err) {
     console.error(err);

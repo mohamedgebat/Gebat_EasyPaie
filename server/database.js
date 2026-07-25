@@ -464,4 +464,5 @@ const dbInterface = {
   }
 };
 
+dbInterface.pool = pool; // Export pool for migration scripts
 export default dbInterface;
