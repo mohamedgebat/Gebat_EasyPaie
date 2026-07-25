@@ -20,6 +20,42 @@ const STANDARD_DEPARTMENTS = [
   'GEBAT'
 ];
 
+const timeToMinutes = (timeStr) => {
+  if (!timeStr || typeof timeStr !== 'string') return null;
+  const [hh, mm] = timeStr.split(':').map(Number);
+  if (isNaN(hh) || isNaN(mm)) return null;
+  return hh * 60 + mm;
+};
+
+const calculateHikCentralDays = (row, headers) => {
+  const times = [];
+  ['Entrée 1', 'Sortie 1', 'Entrée 2', 'Sortie 2', 'Entrée 3', 'Sortie 3'].forEach(col => {
+    const idx = headers.indexOf(col);
+    if (idx !== -1) {
+      const min = timeToMinutes(row[idx]);
+      if (min !== null) times.push(min);
+    }
+  });
+
+  if (times.length === 0) return 0;
+  
+  const earliest = Math.min(...times);
+  const latest = Math.max(...times);
+  
+  let days = 0;
+  // Morning shift: from ~08:00 to ~12:30 (Arrive <= 10:00, Leave >= 12:00)
+  if (earliest <= 10 * 60 && latest >= 12 * 60) {
+    days += 0.5;
+  }
+  
+  // Afternoon shift: from ~13:00 to ~17:30 (Arrive <= 14:30, Leave >= 16:00)
+  if (earliest <= 14.5 * 60 && latest >= 16 * 60) {
+    days += 0.5;
+  }
+  
+  return days;
+};
+
 export default function Conversion() {
   const navigate = useNavigate();
   const [file, setFile] = useState(null);
@@ -267,10 +303,104 @@ export default function Conversion() {
 
       setDaysHeader(parsedDays);
 
-      // 3. Process every worker from row 6 onwards
+      const isHikCentral = sumJson[0] && sumJson[0].some(c => c && c.toString() === 'Entrée 1') && sumJson[0].some(c => c && c.toString() === 'Nom et prénoms');
+
+      // 3. Process workers
       const processedWorkers = [];
 
-      for (let i = 6; i < sumJson.length; i++) {
+      if (isHikCentral) {
+        const headers = sumJson[0];
+        const nameIdx = headers.indexOf('Nom et prénoms');
+        const deptIdx = headers.indexOf('Département');
+        const idIdx = headers.indexOf('ID');
+        const jourIdx = headers.indexOf('Jour');
+        const statusIdx = headers.indexOf('Statut');
+        
+        const workerMap = new Map();
+        
+        for (let i = 1; i < sumJson.length; i++) {
+          const row = sumJson[i];
+          if (!row || !row[nameIdx]) continue;
+          
+          const rawName = row[nameIdx];
+          const name = rawName.toString().trim().toUpperCase();
+          if (!name) continue;
+          
+          let worker = workerMap.get(name);
+          if (!worker) {
+            let rawDept = (row[deptIdx] || 'Aide Chantier').trim();
+            let deptUpper = rawDept.toUpperCase();
+            let dept = rawDept;
+            if (deptUpper.includes('MACON') || deptUpper.includes('MAÇON')) dept = 'MACONS';
+            else if (deptUpper.includes('FERRAIL') || deptUpper.includes('FERAIL')) dept = 'FERRAILLEURS';
+            else if (deptUpper.includes('COFFR')) dept = 'COFFREURS';
+            else if (deptUpper.includes('PLOMB')) dept = 'PLOMBIERS';
+            else if (deptUpper.includes('ENGIN')) dept = "CONDUCTEUR D'ENGINS";
+            else if (deptUpper.includes('BETON') || deptUpper.includes('PAVE') || deptUpper.includes('PAVÉ')) dept = 'OPERATEUR BETONNIERE';
+            else if (deptUpper.includes('AIDE')) dept = 'AIDE CHANTIER';
+            else if (deptUpper.includes('GEBAT')) dept = 'GEBAT';
+            else dept = deptUpper;
+            
+            workerMap.set(name, { id: row[idIdx], name, dept, daily: {}, totalWorkDays: 0 });
+            worker = workerMap.get(name);
+          }
+          
+          const dayName = (row[jourIdx] || '').toString().trim();
+          let days = calculateHikCentralDays(row, headers);
+          
+          if (days === 0 && statusIdx !== -1) {
+             const status = row[statusIdx];
+             if (status && typeof status === 'string' && (status.includes("Présent") || status.includes("Normal"))) {
+                 days = 1;
+             }
+          }
+          if (days > 0 && dayName) {
+            // Find which day of the week it matches
+            const matchedDayIdx = parsedDays.findIndex(d => d.toLowerCase() === dayName.toLowerCase());
+            if (matchedDayIdx !== -1) {
+              worker.daily[matchedDayIdx] = days;
+            }
+          }
+        }
+        
+        for (const worker of workerMap.values()) {
+          const isAide = String(worker.dept || '').trim().toUpperCase().includes('AIDE');
+          const baseRate = isAide ? 4500 : (Number(dailyWage) || 7500);
+          const dailyAttendance = [];
+          
+          for (let d = 0; d < 7; d++) {
+            const dName = parsedDays[d];
+            const dValue = worker.daily[d] || 0;
+            dailyAttendance.push({
+              dayIdx: d,
+              dayName: dName,
+              punches: [],
+              jrTravaille: dValue,
+              mtJournalier: dValue * baseRate,
+              otHours: 0,
+              otAmount: 0
+            });
+            worker.totalWorkDays += dValue;
+          }
+          
+          const netPay = worker.totalWorkDays * baseRate;
+          if (netPay <= 0) continue;
+          
+          processedWorkers.push({
+            id: String(worker.id),
+            name: worker.name,
+            dept: worker.dept,
+            dailyAttendance,
+            totalWorkDays: worker.totalWorkDays,
+            totalBasePay: worker.totalWorkDays * baseRate,
+            totalOTHours: 0,
+            totalOTAmount: 0,
+            netPay
+          });
+        }
+      } else {
+        // ZKTeco logic
+        for (let i = 6; i < sumJson.length; i++) {
         const row = sumJson[i];
         if (!row || !row[1] || typeof row[1] !== 'string') continue;
 
@@ -373,6 +503,7 @@ export default function Conversion() {
 
         processedWorkers.push(workerObj);
       }
+      } // End of ZKTeco logic
 
       setWorkers(processedWorkers);
     } catch (err) {
