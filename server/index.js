@@ -47,6 +47,23 @@ app.get('/api/migrate-db', async (req, res) => {
   }
 });
 
+// Debug route to kill stuck database queries (ALTER or UPDATE)
+app.get('/api/debug-db', async (req, res) => {
+  try {
+    const [processes] = await db.pool.query('SHOW FULL PROCESSLIST');
+    const killed = [];
+    for (const p of processes) {
+      if (p.Time > 10 && p.Command === 'Query' && (p.Info && (p.Info.toUpperCase().includes('ALTER TABLE') || p.Info.toUpperCase().includes('UPDATE ouvriers')))) {
+        await db.pool.query(`KILL ${p.Id}`);
+        killed.push({ id: p.Id, query: p.Info, time: p.Time });
+      }
+    }
+    res.status(200).json({ status: 'success', killed, active_processes: processes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Ouvriers routes
 app.get('/api/ouvriers', async (req, res) => {
   try {
