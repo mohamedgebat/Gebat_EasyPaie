@@ -317,8 +317,9 @@ export default function ImportPointage() {
       for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i];
         if (!row || row.length === 0) continue;
-        const name = row[nameIndex];
-        if (!name || name === '') continue;
+        const rawName = row[nameIndex];
+        if (!rawName || rawName === '') continue;
+        const name = rawName.toString().trim().toUpperCase();
 
         let worker = workerMap.get(name);
         if (!worker) {
@@ -368,8 +369,9 @@ export default function ImportPointage() {
       for (let i = 1; i < rawData.length; i++) {
         const row = rawData[i];
         if (!row || row.length === 0) continue;
-        const name = row[nameIndex];
-        if (!name || name === '') continue;
+        const rawName = row[nameIndex];
+        if (!rawName || rawName === '') continue;
+        const name = rawName.toString().trim().toUpperCase();
 
         let worker = workerMap.get(name);
         if (!worker) {
@@ -473,8 +475,9 @@ export default function ImportPointage() {
       const isHeuresSup = sheetName === 'HEURES SUP';
       
       sheetData.forEach(row => {
-        const workerName = row['NOM ET PRENOMS'];
-        if (!workerName) return;
+        const rawWorkerName = row['NOM ET PRENOMS'];
+        if (!rawWorkerName) return;
+        const workerName = rawWorkerName.toString().trim().toUpperCase();
         
         if (workerMap.has(workerName)) {
           const existing = workerMap.get(workerName);
@@ -483,7 +486,7 @@ export default function ImportPointage() {
             existing['Qualification'] = existing['Qualification'] + ' + HEURES SUP';
           }
         } else {
-          workerMap.set(workerName, { ...row });
+          workerMap.set(workerName, { ...row, 'NOM ET PRENOMS': workerName });
         }
       });
     });
