@@ -237,6 +237,24 @@ app.post('/api/ponctions', async (req, res) => {
   }
 });
 
+app.put('/api/ponctions/:id', async (req, res) => {
+  try {
+    const result = await db.updatePonction(parseInt(req.params.id), req.body);
+    res.json(result || { id: req.params.id, ...req.body });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/ponctions/:id', async (req, res) => {
+  try {
+    const result = await db.deletePonction(parseInt(req.params.id));
+    res.json({ success: result });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Loyers routes
 app.get('/api/loyers', async (req, res) => {
   try {

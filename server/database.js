@@ -214,6 +214,25 @@ const dbInterface = {
     return { id: res.insertId, ...data, cumul, created_at };
   },
 
+  updatePonction: async (id, data) => {
+    const fields = [];
+    const values = [];
+    if (data.date !== undefined) { fields.push('date = ?'); values.push(data.date); }
+    if (data.montant !== undefined) { fields.push('montant = ?'); values.push(Number(data.montant) || 0); }
+    if (data.motif !== undefined) { fields.push('motif = ?'); values.push(data.motif); }
+    
+    if (fields.length === 0) return null;
+    
+    values.push(id);
+    await pool.query(`UPDATE ponctions SET ${fields.join(', ')} WHERE id = ?`, values);
+    return { id, ...data };
+  },
+
+  deletePonction: async (id) => {
+    const [res] = await pool.query('DELETE FROM ponctions WHERE id = ?', [id]);
+    return res.affectedRows > 0;
+  },
+
   // Loyers
   getLoyers: async () => {
     const [rows] = await pool.query(`

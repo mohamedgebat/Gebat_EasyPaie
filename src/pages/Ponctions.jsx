@@ -1,7 +1,7 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect, useMemo } from 'react';
 import { 
-  Plus, Search, History, AlertCircle, CheckCircle2, XCircle, 
+  Plus, Search, History, AlertCircle, CheckCircle2, XCircle, Trash2, 
   AlertTriangle, Shield, UserCheck, Users, Calendar, DollarSign, 
   ArrowRight, X, Sparkles, RefreshCw, Check, HardHat, CreditCard,
   Filter, Building2, Lock, Unlock, Download, FileText, FileSpreadsheet
@@ -221,6 +221,27 @@ function PonctionsContent() {
     } catch (error) {
       console.error('Error saving ponction:', error);
       alert('Erreur lors de l\'enregistrement de la ponction');
+    }
+  };
+
+  const handleDeletePonction = async (e, ponctionId) => {
+    e.stopPropagation(); // Évite de déclencher la sélection de l'ouvrier
+    const confirmDelete = window.confirm("Êtes-vous sûr de vouloir supprimer cette ponction/retenue ? Cette action est irréversible.");
+    if (!confirmDelete) return;
+
+    try {
+      const response = await apiFetch(`/api/ponctions/${ponctionId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Erreur serveur lors de la suppression');
+      
+      await fetchData();
+      if (selectedWorker) {
+        handleWorkerSelect(selectedWorker);
+      }
+    } catch (error) {
+      console.error('Error deleting ponction:', error);
+      alert('Erreur lors de la suppression de la ponction');
     }
   };
 
@@ -1276,6 +1297,7 @@ function PonctionsContent() {
                         <th className="py-3.5 px-4">Chantier / Qualif.</th>
                         <th className="py-3.5 px-4">Motif / Désignation</th>
                         <th className="py-3.5 px-4 text-right">Montant Retenu</th>
+                        <th className="py-3.5 px-4 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1297,6 +1319,15 @@ function PonctionsContent() {
                             </td>
                             <td className="py-3 px-4 text-gray-700 font-medium">{ponction.motif || 'Retenue EPI'}</td>
                             <td className="py-3 px-4 text-right font-black text-red-600 font-mono">{formatCurrency(ponction.montant)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={(e) => handleDeletePonction(e, ponction.id)}
+                                className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                title="Supprimer cette ponction"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
                           </tr>
                         );
                       })}
@@ -1727,6 +1758,7 @@ function PonctionsContent() {
                           <th className="py-3 px-4">Montant Retenu</th>
                           <th className="py-3 px-4">Motif / Désignation</th>
                           <th className="py-3 px-4 text-right">Cumul Caution</th>
+                          <th className="py-3 px-4 text-center">Action</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -1736,6 +1768,15 @@ function PonctionsContent() {
                             <td className="py-3 px-4 font-black text-red-600">{formatCurrency(ponction.montant)}</td>
                             <td className="py-3 px-4 text-gray-700 font-medium">{ponction.motif || 'Retenue EPI'}</td>
                             <td className="py-3 px-4 text-right font-black text-purple-900 font-mono">{formatCurrency(ponction.cumul)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={(e) => handleDeletePonction(e, ponction.id)}
+                                className="text-gray-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                title="Supprimer cette ponction"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </td>
                           </tr>
                         ))}
                       </tbody>
