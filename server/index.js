@@ -19,15 +19,26 @@ app.get('/api/migrate-db', async (req, res) => {
       throw new Error('Database pool not found');
     }
     
+    // Function to add column safely without IF NOT EXISTS syntax
+    const addColumn = async (table, column, definition) => {
+      const [rows] = await tempPool.query(
+        "SELECT * FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+        [table, column]
+      );
+      if (rows.length === 0) {
+        await tempPool.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      }
+    };
+
     // Ouvriers table
-    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
-    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_lost_amount DECIMAL(10,2) DEFAULT 0');
-    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_settled BOOLEAN DEFAULT FALSE');
-    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_refunded BOOLEAN DEFAULT FALSE');
-    await tempPool.query('ALTER TABLE ouvriers ADD COLUMN IF NOT EXISTS epi_observations TEXT DEFAULT NULL');
+    await addColumn('ouvriers', 'epi_departure_option', 'VARCHAR(50) DEFAULT NULL');
+    await addColumn('ouvriers', 'epi_lost_amount', 'DECIMAL(10,2) DEFAULT 0');
+    await addColumn('ouvriers', 'epi_settled', 'BOOLEAN DEFAULT FALSE');
+    await addColumn('ouvriers', 'epi_refunded', 'BOOLEAN DEFAULT FALSE');
+    await addColumn('ouvriers', 'epi_observations', 'TEXT DEFAULT NULL');
     
     // Paies table
-    await tempPool.query('ALTER TABLE paies ADD COLUMN IF NOT EXISTS epi_departure_option VARCHAR(50) DEFAULT NULL');
+    await addColumn('paies', 'epi_departure_option', 'VARCHAR(50) DEFAULT NULL');
     
     res.status(200).send('Migration successful: Columns added to Railway database!');
   } catch (err) {
