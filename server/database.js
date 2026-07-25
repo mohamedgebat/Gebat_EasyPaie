@@ -69,8 +69,14 @@ const dbInterface = {
 
     for (const key of allowed) {
       if (data[key] !== undefined) {
+        let val = data[key];
+        // Handle empty strings for numeric/boolean columns to prevent MySQL strict mode errors
+        if (val === '') {
+           if (['epi_lost_amount', 'epi_settled', 'epi_refunded'].includes(key)) val = 0;
+           else if (['date_entree', 'date_depart'].includes(key)) val = null;
+        }
         fields.push(`\`${key}\` = ?`);
-        values.push(data[key]);
+        values.push(val);
       }
     }
 
