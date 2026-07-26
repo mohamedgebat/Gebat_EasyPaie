@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { 
   Upload, Check, AlertCircle, Plus, FileText, FileSpreadsheet, 
   Loader2, Calendar, Users, ArrowRight, CheckCircle2, ShieldAlert, 
-  RefreshCw, Layers, Database, Sparkles, X, Building2
+  RefreshCw, Layers, Database, Sparkles, X, Building2, Trash2
 } from 'lucide-react';
 import * as XLSX from 'xlsx-js-style';
 import { formatCurrency, formatDate, extractWorkbookMetadata, extractSiteFromFilename } from '../lib/utils';
@@ -32,6 +32,73 @@ export default function ImportPointage() {
     numero_mobile_money: '',
     statut: 'actif',
   });
+
+  const [showCustomModal, setShowCustomModal] = useState(false);
+  const [customRates, setCustomRates] = useState([]);
+  const [newCustomName, setNewCustomName] = useState('');
+  const [newCustomWage, setNewCustomWage] = useState('');
+  const [newCustomSite, setNewCustomSite] = useState('TOUS');
+  const [newCustomDept, setNewCustomDept] = useState('TOUS');
+  const [newCustomDate, setNewCustomDate] = useState('TOUS');
+  const [customDateInput, setCustomDateInput] = useState('');
+  const [sitesList] = useState(['BINGERVILLE', 'SONGON', 'BOUAKE', 'SAN PEDRO', 'YAMOUSSOUKRO', 'JACQUEVILLE', 'ABOBO', 'COCODY', 'YOPOUGON']);
+  const [availableDepartments] = useState(['AIDE CHANTIER', 'MACON', 'FERRAILLEUR', 'MENUISIER', 'PLOMBIER', 'ELECTRICIEN', 'PEINTRE', 'CARRELEUR', 'ETANCHEUR', 'STAFFEUR', 'SOUDEUR', 'CHAUFFEUR', 'MACHINISTE', 'MAGASINIER', 'GARDIEN', 'POINTEUR', 'CHEF D\'EQUIPE', 'CHEF CHANTIER']);
+  const [daysHeader] = useState(['Vendredi', 'Samedi', 'Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi']);
+
+  useEffect(() => {
+    try {
+      const savedCustom = localStorage.getItem('easypaie_custom_worker_rates');
+      if (savedCustom) setCustomRates(JSON.parse(savedCustom));
+    } catch (e) {}
+  }, []);
+
+  const handleAddOrUpdateCustomRate = (e) => {
+    if (e) e.preventDefault();
+    if (!newCustomName || !newCustomName.trim() || !newCustomWage || Number(newCustomWage) <= 0) return;
+    const cleanName = newCustomName.trim().toUpperCase();
+    const cleanWage = Number(newCustomWage);
+    const cleanSite = newCustomSite || 'TOUS';
+    const cleanDept = newCustomDept || 'TOUS';
+    const cleanDate = (newCustomDate === 'CUSTOM_INPUT' ? (customDateInput || 'TOUS') : (newCustomDate || 'TOUS')).trim().toUpperCase();
+
+    setCustomRates(prev => {
+      const existingIdx = prev.findIndex(c => 
+        c.nom.toLowerCase().trim() === cleanName.toLowerCase() &&
+        (c.date || 'TOUS').toUpperCase() === cleanDate &&
+        (c.site || 'TOUS').toUpperCase() === cleanSite &&
+        (c.dept || 'TOUS').toUpperCase() === cleanDept
+      );
+      let updated;
+      const newEntry = { nom: cleanName, salaire: cleanWage, site: cleanSite, dept: cleanDept, date: cleanDate };
+      if (existingIdx >= 0) {
+        updated = [...prev];
+        updated[existingIdx] = newEntry;
+      } else {
+        updated = [...prev, newEntry];
+      }
+      localStorage.setItem('easypaie_custom_worker_rates', JSON.stringify(updated));
+      return updated;
+    });
+    setNewCustomName('');
+    setNewCustomWage('');
+    setNewCustomSite('TOUS');
+    setNewCustomDept('TOUS');
+    setNewCustomDate('TOUS');
+    setCustomDateInput('');
+  };
+
+  const handleRemoveCustomRate = (target) => {
+    setCustomRates(prev => {
+      let updated;
+      if (typeof target === 'number') {
+        updated = prev.filter((_, idx) => idx !== target);
+      } else {
+        updated = prev.filter(c => c.nom.toLowerCase().trim() !== String(target).toLowerCase().trim());
+      }
+      localStorage.setItem('easypaie_custom_worker_rates', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const location = useLocation();
 
@@ -770,9 +837,10 @@ export default function ImportPointage() {
   };
 
   return (
-    <div className="space-y-8 pb-16">
-      {/* Premium Hero Header */}
-      <div className="bg-gradient-to-r from-teal-900 via-emerald-900 to-cyan-900 text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
+    <>
+      <div className="space-y-8 pb-16">
+        {/* Premium Hero Header */}
+        <div className="bg-gradient-to-r from-teal-900 via-emerald-900 to-cyan-900 text-white p-8 rounded-3xl shadow-2xl relative overflow-hidden">
         <div className="absolute right-0 top-0 w-96 h-96 bg-emerald-400/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
         <div className="absolute left-1/3 bottom-0 w-64 h-64 bg-cyan-400/10 rounded-full blur-2xl pointer-events-none" />
         
@@ -857,13 +925,22 @@ export default function ImportPointage() {
                 className="hidden"
                 id="file-upload"
               />
-              <label
-                htmlFor="file-upload"
-                className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-500/25 cursor-pointer inline-flex items-center gap-2.5 transform active:scale-95 transition-all text-sm"
-              >
-                <Sparkles size={18} />
-                {file ? 'Charger un autre fichier Excel' : 'Parcourir les fichiers du PC'}
-              </label>
+              <div className="flex flex-wrap items-center justify-center gap-4">
+                <label
+                  htmlFor="file-upload"
+                  className="px-8 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-extrabold rounded-2xl shadow-xl shadow-emerald-500/25 cursor-pointer inline-flex items-center gap-2.5 transform active:scale-95 transition-all text-sm"
+                >
+                  <Upload size={18} />
+                  {file ? 'Charger un autre fichier Excel' : 'Parcourir les fichiers du PC'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCustomModal(true)}
+                  className="px-6 py-4 bg-white hover:bg-amber-50 text-amber-800 font-extrabold rounded-2xl border border-amber-300 shadow-sm inline-flex items-center gap-2.5 transition-all text-sm"
+                >
+                  <Sparkles size={18} className="text-amber-600" /> Tarifs Spéciaux ({customRates.length})
+                </button>
+              </div>
             </>
           )}
         </div>
@@ -884,7 +961,7 @@ export default function ImportPointage() {
       {previewData.length > 0 && (
         <div className="space-y-6 animate-fadeIn">
           {/* Top Info Bar */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-5">
             <div className="bg-gradient-to-br from-purple-600 to-indigo-700 text-white p-6 rounded-2xl shadow-lg flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between">
@@ -940,6 +1017,15 @@ export default function ImportPointage() {
                 </div>
               </div>
             )}
+
+            <div className="bg-gradient-to-br from-amber-500 to-orange-600 text-white p-6 rounded-2xl shadow-lg flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-100 block">Montant Total</span>
+                <div className="text-2xl font-black mt-1 flex items-center gap-2">
+                  {formatCurrency([...existingWorkers, ...unknownWorkers].reduce((sum, w) => sum + (Number(w['NET A PAYER'] || w['Net à payer'] || w['Net a payer'] || w.salaire) || 0), 0))}
+                </div>
+              </div>
+            </div>
 
             <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl flex items-center justify-between">
               <div>
@@ -1306,5 +1392,180 @@ export default function ImportPointage() {
         </div>
       )}
     </div>
+
+    {showCustomModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/60 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-gray-100 max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-scale-up">
+            <div className="px-6 py-5 bg-gradient-to-r from-amber-600 to-orange-600 text-white flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-xl">
+                  <Sparkles size={24} />
+                </div>
+                <div>
+                  <h3 className="font-black text-lg">Salaires Journaliers Personnalisés</h3>
+                  <p className="text-xs text-amber-100">Définissez des taux distincts pour certains ouvriers (Chefs d'équipe, etc.)</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCustomModal(false)} className="p-1.5 rounded-xl hover:bg-white/20 text-white transition-colors">
+                <X size={22} />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              <form onSubmit={handleAddOrUpdateCustomRate} className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 shadow-sm">
+                <h4 className="font-bold text-xs uppercase text-amber-900 mb-3 flex items-center gap-1.5">
+                  <Plus size={14} className="text-amber-600" /> Ajouter / Mettre à jour
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  <div className="sm:col-span-3 space-y-1">
+                    <label className="text-[11px] font-bold text-gray-600 block flex justify-between">
+                      Nom Prénom exact
+                      {newCustomName && (
+                        <span className="text-[9px] text-amber-600 truncate max-w-[120px]">
+                          {(() => {
+                            const target = newCustomName.toUpperCase().trim();
+                            const allWorkers = [...existingWorkers, ...unknownWorkers];
+                            const fileMatches = allWorkers.filter(w => (w.workerName || w.nom || '').toUpperCase().trim() === target);
+                            const sites = new Set();
+                            const depts = new Set();
+                            fileMatches.forEach(w => { sites.add(detectedSite); if (w.dept || w.qualification) depts.add(w.dept || w.qualification); });
+                            
+                            if (sites.size > 0 || depts.size > 0) return `${Array.from(sites).join(', ')} | ${Array.from(depts).join(', ')}`;
+                            return '';
+                          })()}
+                        </span>
+                      )}
+                    </label>
+                    <input
+                      type="text"
+                      list="workers-modal-list"
+                      placeholder="Ex: KOUASSI JEAN..."
+                      value={newCustomName}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewCustomName(val);
+                        if (val) {
+                          const target = val.toUpperCase().trim();
+                          const allWorkers = [...existingWorkers, ...unknownWorkers];
+                          const fileMatch = allWorkers.find(w => (w.workerName || w.nom || '').toUpperCase().trim() === target);
+                          if (fileMatch) {
+                            if (detectedSite) setNewCustomSite(detectedSite.toUpperCase());
+                            if (fileMatch.dept || fileMatch.qualification) setNewCustomDept((fileMatch.dept || fileMatch.qualification).toUpperCase());
+                          }
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-amber-500 uppercase"
+                    />
+                    <datalist id="workers-modal-list">
+                      {[...existingWorkers, ...unknownWorkers].map((w, i) => (
+                        <option key={i} value={w.workerName || w.nom || ''} />
+                      ))}
+                    </datalist>
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-gray-600 block">Site Chantier</label>
+                    <select value={newCustomSite} onChange={(e) => setNewCustomSite(e.target.value)} className="w-full px-2.5 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:border-amber-500 uppercase">
+                      <option value="TOUS">Tous</option>
+                      {sitesList.map((s, idx) => <option key={idx} value={s}>{s}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-gray-600 block">Département</label>
+                    <select value={newCustomDept} onChange={(e) => setNewCustomDept(e.target.value)} className="w-full px-2.5 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:border-amber-500 uppercase">
+                      <option value="TOUS">Par défaut</option>
+                      {availableDepartments.map((d, idx) => <option key={idx} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-gray-600 block">Date / Jour</label>
+                    {newCustomDate === 'CUSTOM_INPUT' ? (
+                      <div className="flex gap-1">
+                        <input type="text" placeholder="Ex: 04/07" value={customDateInput} onChange={(e) => setCustomDateInput(e.target.value)} className="w-full px-2 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-amber-500 uppercase" />
+                        <button type="button" onClick={() => setNewCustomDate('TOUS')} className="px-1.5 py-2 bg-gray-200 text-gray-600 rounded-xl text-xs font-bold">✕</button>
+                      </div>
+                    ) : (
+                      <select value={newCustomDate} onChange={(e) => setNewCustomDate(e.target.value)} className="w-full px-2 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-800 focus:border-amber-500 uppercase">
+                        <option value="TOUS">Tous</option>
+                        {daysHeader.map((dName, idx) => <option key={idx} value={dName}>J{idx + 1} : {dName}</option>)}
+                        <option value="CUSTOM_INPUT">📅 Saisir...</option>
+                      </select>
+                    )}
+                  </div>
+                  <div className="sm:col-span-2 space-y-1">
+                    <label className="text-[11px] font-bold text-gray-600 block">Salaire Spécial</label>
+                    <div className="relative">
+                      <input type="number" placeholder="Ex: 10000" value={newCustomWage} onChange={(e) => setNewCustomWage(e.target.value)} className="w-full pl-2.5 pr-10 py-2 bg-white border border-gray-300 rounded-xl text-xs font-black text-amber-900 focus:border-amber-500" />
+                      <span className="absolute right-2 top-2.5 text-[10px] font-bold text-gray-400">FCFA</span>
+                    </div>
+                  </div>
+                  <div className="sm:col-span-1">
+                    <button type="submit" disabled={!newCustomName.trim() || !newCustomWage || Number(newCustomWage) <= 0} className="w-full py-2 px-2 bg-amber-600 hover:bg-amber-700 disabled:bg-gray-200 text-white font-extrabold text-xs rounded-xl shadow-sm transition-all flex items-center justify-center gap-1">
+                      <Plus size={16} /> OK
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              <div>
+                <h4 className="font-bold text-xs text-gray-700 uppercase tracking-wider mb-2">Liste configurée ({customRates.length})</h4>
+                <div className="border border-gray-200 rounded-2xl overflow-hidden max-h-[300px] overflow-y-auto">
+                  {customRates.length === 0 ? (
+                    <div className="p-8 text-center text-gray-400 text-xs">Aucun salaire personnalisé enregistré.</div>
+                  ) : (
+                    <table className="w-full text-left text-xs border-collapse">
+                      <thead className="bg-gray-100 text-gray-700 font-bold sticky top-0">
+                        <tr>
+                          <th className="py-2.5 px-3">Ouvrier</th>
+                          <th className="py-2.5 px-2 text-center">Site</th>
+                          <th className="py-2.5 px-2 text-center">Dépt.</th>
+                          <th className="py-2.5 px-2 text-center">Jour / Date</th>
+                          <th className="py-2.5 px-3 text-right">Salaire Spécial</th>
+                          <th className="py-2.5 px-3 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {customRates.map((c, i) => {
+                          const isDaySpecific = c.date && c.date !== 'TOUS' && c.date !== 'ALL';
+                          return (
+                            <tr key={i} className="hover:bg-amber-50/30">
+                              <td className="py-2.5 px-3 font-bold text-gray-900 uppercase">{c.nom}</td>
+                              <td className="py-2.5 px-2 text-center font-bold">
+                                <span className="bg-purple-100 text-purple-800 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase">{c.site && c.site !== 'TOUS' && c.site !== 'ALL' ? c.site : 'Global'}</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-center font-bold">
+                                <span className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-extrabold uppercase">{c.dept && c.dept !== 'TOUS' && c.dept !== 'ALL' ? c.dept : 'Par défaut'}</span>
+                              </td>
+                              <td className="py-2.5 px-2 text-center font-bold">
+                                {isDaySpecific ? (
+                                  <span className="bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] font-black uppercase inline-flex items-center gap-1">
+                                    <Calendar size={11} className="text-amber-600" /> {c.date}
+                                  </span>
+                                ) : (
+                                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase">Tous</span>
+                                )}
+                              </td>
+                              <td className="py-2.5 px-3 text-right font-black text-amber-600">{Number(c.salaire).toLocaleString()} FCFA</td>
+                              <td className="py-2.5 px-3 text-center">
+                                <button type="button" onClick={() => handleRemoveCustomRate(i)} className="text-gray-400 hover:text-rose-600 p-1"><Trash2 size={15} /></button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+              <button type="button" onClick={() => setShowCustomModal(false)} className="px-6 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-bold text-xs rounded-xl transition-all shadow-sm">
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
