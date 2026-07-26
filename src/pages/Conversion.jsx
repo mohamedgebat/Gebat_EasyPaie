@@ -131,6 +131,8 @@ export default function Conversion() {
     });
     setNewCustomName('');
     setNewCustomWage('');
+    setNewCustomSite('TOUS');
+    setNewCustomDept('TOUS');
     setNewCustomDate('TOUS');
     setCustomDateInput('');
   };
@@ -511,51 +513,6 @@ export default function Conversion() {
       }
       } // End of ZKTeco logic
       
-      // Append DB workers that are missing
-      const siteFoundUpper = siteFound.toUpperCase();
-      const siteDbWorkers = dbWorkers.filter(w => (w.site || 'SONGON').toUpperCase() === siteFoundUpper && w.statut === 'actif');
-      
-      siteDbWorkers.forEach(w => {
-        const exists = processedWorkers.find(pw => pw.name.trim().toUpperCase() === w.nom.trim().toUpperCase());
-        if (!exists) {
-          let rawDept = (w.qualification || 'AIDE CHANTIER').trim();
-          let deptUpper = rawDept.toUpperCase();
-          let dept = rawDept;
-          if (deptUpper.includes('MACON') || deptUpper.includes('MAÇON')) dept = 'MACONS';
-          else if (deptUpper.includes('FERRAIL') || deptUpper.includes('FERAIL')) dept = 'FERRAILLEURS';
-          else if (deptUpper.includes('COFFR')) dept = 'COFFREURS';
-          else if (deptUpper.includes('PLOMB')) dept = 'PLOMBIERS';
-          else if (deptUpper.includes('ENGIN')) dept = "CONDUCTEUR D'ENGINS";
-          else if (deptUpper.includes('BETON') || deptUpper.includes('PAVE') || deptUpper.includes('PAVÉ')) dept = 'OPERATEUR BETONNIERE';
-          else if (deptUpper.includes('AIDE')) dept = 'AIDE CHANTIER';
-          else if (deptUpper.includes('GEBAT')) dept = 'GEBAT';
-          else dept = deptUpper;
-          
-          const isAide = String(dept || '').trim().toUpperCase().includes('AIDE');
-          const baseRate = isAide ? 4500 : (Number(dailyWage) || 7500);
-          
-          const dailyAttendance = [];
-          for (let d = 0; d < 7; d++) {
-            dailyAttendance.push({
-              dayIdx: d, dayName: parsedDays[d] || `Jour ${d+1}`, punches: [],
-              jrTravaille: 0, mtJournalier: 0, otHours: 0, otAmount: 0
-            });
-          }
-          
-          processedWorkers.push({
-            id: w.id || `db-${Date.now()}-${Math.random()}`,
-            name: w.nom,
-            dept,
-            dailyAttendance,
-            totalWorkDays: 0,
-            totalBasePay: 0,
-            totalOTHours: 0,
-            totalOTAmount: 0,
-            netPay: 0
-          });
-        }
-      });
-
       setWorkers(processedWorkers);
     } catch (err) {
       console.error('Error parsing file:', err);
@@ -2400,13 +2357,44 @@ export default function Conversion() {
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
                   <div className="sm:col-span-3 space-y-1">
-                    <label className="text-[11px] font-bold text-gray-600 block">Nom Prénom exact</label>
+                    <label className="text-[11px] font-bold text-gray-600 block flex justify-between">
+                      Nom Prénom exact
+                      {newCustomName && (
+                        <span className="text-[9px] text-amber-600 truncate max-w-[120px]" title="Détection automatique">
+                          {(() => {
+                            const target = newCustomName.toUpperCase().trim();
+                            const fileMatches = workers.filter(w => w.name && w.name.toUpperCase().trim() === target);
+                            const sites = new Set();
+                            const depts = new Set();
+                            fileMatches.forEach(w => { sites.add(siteName); if (w.dept) depts.add(w.dept); });
+                            
+                            if (sites.size > 0 || depts.size > 0) {
+                              return `${Array.from(sites).join(', ')} | ${Array.from(depts).join(', ')}`;
+                            }
+                            return '';
+                          })()}
+                        </span>
+                      )}
+                    </label>
                     <input
                       type="text"
                       list="workers-modal-list"
                       placeholder="Ex: KOUASSI JEAN..."
                       value={newCustomName}
-                      onChange={(e) => setNewCustomName(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setNewCustomName(val);
+                        // Autofill logic
+                        if (val) {
+                          const target = val.toUpperCase().trim();
+                          const fileMatch = workers.find(w => w.name && w.name.toUpperCase().trim() === target);
+                          
+                          if (fileMatch) {
+                            if (siteName) setNewCustomSite(siteName.toUpperCase());
+                            if (fileMatch.dept) setNewCustomDept(fileMatch.dept.toUpperCase());
+                          }
+                        }
+                      }}
                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:border-amber-500 uppercase"
                     />
                     <datalist id="workers-modal-list">

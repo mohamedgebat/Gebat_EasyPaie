@@ -276,6 +276,20 @@ export function extractWorkbookMetadata(workbook, filename = '', XLSX = null) {
     start = `${yearStart}-${mStart}-${dayStart}`;
     end = `${yearEnd}-${mEnd}-${dayEnd}`;
     label = `${dayStart} ${monthStartStr.toUpperCase()} AU ${dayEnd} ${monthEndStr.toUpperCase()} ${yearEnd}`;
+  } else {
+    const frRegex2 = /(\d{1,2})\s*[-_àaAuU]+\s*(\d{1,2})\s+([a-zA-Zûéèäöü]+)\s+(\d{4})/i;
+    const frMatch2 = combined.match(frRegex2);
+    if (frMatch2) {
+      const dayStart = frMatch2[1].padStart(2, '0');
+      const dayEnd = frMatch2[2].padStart(2, '0');
+      const monthStr = frMatch2[3];
+      const year = frMatch2[4];
+      
+      const m = monthMap[monthStr.toLowerCase()] || '07';
+      start = `${year}-${m}-${dayStart}`;
+      end = `${year}-${m}-${dayEnd}`;
+      label = `${dayStart} AU ${dayEnd} ${monthStr.toUpperCase()} ${year}`;
+    }
   }
 
   if (!start) {

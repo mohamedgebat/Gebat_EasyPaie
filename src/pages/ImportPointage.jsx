@@ -501,7 +501,15 @@ export default function ImportPointage() {
       const nomOnly = String(w.nom || '').trim().toLowerCase();
       const full1 = `${w.nom || ''} ${w.prenom || ''}`.trim().toLowerCase();
       const full2 = `${w.prenom || ''} ${w.nom || ''}`.trim().toLowerCase();
-      return nomOnly === target || full1 === target || full2 === target || (target.length > 3 && (full1.includes(target) || target.includes(full1) || nomOnly === target));
+      
+      if (nomOnly === target || full1 === target || full2 === target) return true;
+      
+      // If the target is exactly the same as full1 but with spaces removed or reversed
+      if (target.replace(/\s+/g, '') === full1.replace(/\s+/g, '')) return true;
+      
+      // Don't do simple includes() because "KONE" would match "KONE DAOUDA" and false-positive other Kones.
+      // Instead, we only match if both parts of the name match exactly (e.g. they typed "KONE DAOUDA" instead of "DAOUDA KONE")
+      return false;
     });
   };
 
