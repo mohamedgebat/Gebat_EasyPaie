@@ -1173,7 +1173,17 @@ export default function WorkerDetails() {
                       required
                       className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
                       value={newEpiFourni.equipement}
-                      onChange={e => setNewEpiFourni({...newEpiFourni, equipement: e.target.value})}
+                      onChange={e => {
+                        const val = e.target.value;
+                        let px = newEpiFourni.prix;
+                        if (val === 'Casque') px = '3000';
+                        else if (val === 'Gilet') px = '3000';
+                        else if (val === 'Botte Ordinaire') px = '3000';
+                        else if (val === 'Botte de Sécurité') px = '6000';
+                        else if (val === 'Gant') px = '';
+                        
+                        setNewEpiFourni({...newEpiFourni, equipement: val, prix: px});
+                      }}
                     >
                       <option value="">Sélectionnez un équipement...</option>
                       <option value="Casque">Casque</option>
