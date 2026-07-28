@@ -456,12 +456,12 @@ export default function Historique() {
     doc.save(`Historique_Paies_${suffix}.pdf`);
   };
 
-  const totalBrut = filteredPaies.reduce((sum, p) => sum + (p.salaire_brut || 0), 0);
-  const totalPonctions = filteredPaies.reduce((sum, p) => sum + (p.ponction || 0), 0);
-  const totalLoyers = filteredPaies.reduce((sum, p) => sum + (p.loyer || 0), 0);
-  const totalRembEpi = filteredPaies.reduce((sum, p) => sum + (p.epi_remboursement || 0), 0);
-  const totalDedEpi = filteredPaies.reduce((sum, p) => sum + (p.epi_deduction || 0), 0);
-  const totalNet = filteredPaies.reduce((sum, p) => sum + (p.net_a_payer || 0), 0);
+  const totalBrut = filteredPaies.reduce((sum, p) => sum + (Number(p.salaire_brut) || 0), 0);
+  const totalPonctions = filteredPaies.reduce((sum, p) => sum + (Number(p.ponction) || 0), 0);
+  const totalLoyers = filteredPaies.reduce((sum, p) => sum + (Number(p.loyer) || 0), 0);
+  const totalRembEpi = filteredPaies.reduce((sum, p) => sum + (Number(p.epi_remboursement) || 0), 0);
+  const totalDedEpi = filteredPaies.reduce((sum, p) => sum + (Number(p.epi_deduction) || 0), 0);
+  const totalNet = filteredPaies.reduce((sum, p) => sum + (Number(p.net_a_payer) || 0), 0);
 
   return (
     <div className="space-y-8 pb-16">
