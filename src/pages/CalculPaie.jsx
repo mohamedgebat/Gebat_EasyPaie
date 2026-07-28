@@ -574,9 +574,17 @@ export default function CalculPaie() {
   }, [pointages, ponctions, loyers, paiementsLoyer, ouvriers, paies, siteFilter, qualificationFilter, dateDebut, dateFin, datePaie, semaine]);
 
   const getDynamicWeeklyDeduction = (ouvrierId) => {
+    const worker = ouvriers.find(o => Number(o.id) === Number(ouvrierId));
+    const site = worker?.site || '';
+    const epiLimit = getEpiLimit(site, ouvrierId);
     const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrierId) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
     const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
-    return totalPaid === 0 ? 5000 : 4000;
+    const weeklyDeduction = totalPaid === 0 ? 5000 : 4000;
+    
+    if (totalPaid < epiLimit) {
+      return Math.min(weeklyDeduction, epiLimit - totalPaid);
+    }
+    return 0;
   };
 
   const handlePonctionChange = (index, newAmount) => {
