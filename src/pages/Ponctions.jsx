@@ -11,6 +11,7 @@ import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import gebatLogo from '../assets/logo_gebat.png';
+import { useAuth } from '../contexts/AuthContext';
 import { Component } from 'react';
 
 class ErrorBoundary extends Component {
@@ -40,6 +41,8 @@ class ErrorBoundary extends Component {
 }
 
 function PonctionsContent() {
+  const { currentUser } = useAuth();
+  const isAdmin = currentUser?.role === 'Administrateur';
   const [ponctions, setPonctions] = useState([]);
   const [ouvriers, setOuvriers] = useState([]);
   const [selectedWorker, setSelectedWorker] = useState(null);
@@ -168,7 +171,7 @@ function PonctionsContent() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const targetWorker = ouvriers.find(o => Number(o.id) === Number(formData.ouvrier_id));
-    if (targetWorker && targetWorker.statut === 'parti' && Boolean(targetWorker.epi_departure_option)) {
+    if (targetWorker && targetWorker.statut === 'parti' && Boolean(targetWorker.epi_departure_option) && !isAdmin) {
       alert("⚠️ Action impossible : Cet ouvrier a été enregistré en statut PARTI. Son compte de caution EPI est clôturé et verrouillé. Vous ne pouvez plus modifier ni ajouter de prélèvements.");
       return;
     }
@@ -503,7 +506,7 @@ function PonctionsContent() {
   const workerEpiLimit = getEpiLimit(workerSite);
   const isPaidOff = workerTotal >= workerEpiLimit;
   const isWorkerAlreadyDeparted = Boolean(selectedWorkerData && selectedWorkerData.statut === 'parti' && Boolean(selectedWorkerData.epi_departure_option || selectedWorkerData.date_depart || selectedWorkerData.epi_departure_date));
-  const isDepartedLocked = isWorkerAlreadyDeparted;
+  const isDepartedLocked = isWorkerAlreadyDeparted && !isAdmin;
   const epiResult = computeEpiResult(workerStatus === 'parti' ? epiDepartureOption : '', regularWorkerTotal, epiLostAmount, workerEpiLimit);
   
   const handleExportExcel = () => {
@@ -1862,7 +1865,7 @@ function PonctionsContent() {
                       const limit = getEpiLimit(ouvrier.site);
                       const reste = Math.max(0, limit - total);
                       const isSolded = total >= limit && total > 0;
-                      const isParti = Boolean(ouvrier.statut === 'parti' && Boolean(ouvrier.epi_departure_option || ouvrier.date_depart || ouvrier.epi_departure_date));
+                      const isParti = Boolean(ouvrier.statut === 'parti' && Boolean(ouvrier.epi_departure_option || ouvrier.date_depart || ouvrier.epi_departure_date)) && !isAdmin;
                       return (
                         <option key={ouvrier.id} value={ouvrier.id} disabled={isParti}>
                           {isParti ? '🔒 [Parti/Clôturé]' : (isSolded ? '✅ [Soldé]' : `🔥 [Reste : ${formatCurrency(reste)}]`)} — {ouvrier.nom} {ouvrier.prenom} ({ouvrier.qualification} - {ouvrier.site})
