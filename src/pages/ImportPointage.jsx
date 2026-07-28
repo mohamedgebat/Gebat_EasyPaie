@@ -933,6 +933,27 @@ export default function ImportPointage() {
                   <Upload size={18} />
                   {file ? 'Charger un autre fichier Excel' : 'Parcourir les fichiers du PC'}
                 </label>
+                
+                {file && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Voulez-vous vraiment effacer le fichier en cours ? Toutes les données non validées seront perdues.')) {
+                        setFile(null);
+                        setPreviewData([]);
+                        setExistingWorkers([]);
+                        setUnknownWorkers([]);
+                        setExtractedDates({ debut: null, fin: null, semaine: '' });
+                        setDetectedSite('');
+                        const fileInput = document.getElementById('file-upload');
+                        if (fileInput) fileInput.value = '';
+                      }
+                    }}
+                    className="px-6 py-4 bg-red-50 hover:bg-red-100 text-red-600 font-extrabold rounded-2xl border border-red-200 shadow-sm inline-flex items-center gap-2.5 transition-all text-sm"
+                  >
+                    <Trash2 size={18} /> Effacer
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setShowCustomModal(true)}

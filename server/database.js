@@ -132,6 +132,17 @@ const dbInterface = {
     return { id, ...data };
   },
 
+  deletePointagesBySemaine: async (semaine, site) => {
+    let query = 'DELETE FROM pointages WHERE semaine = ?';
+    let params = [semaine];
+    if (site) {
+      query += ' AND site = ?';
+      params.push(site);
+    }
+    const [result] = await pool.query(query, params);
+    return result;
+  },
+
   // Ponctions
   getPonctions: async () => {
     const [rows] = await pool.query(`

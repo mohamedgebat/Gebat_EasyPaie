@@ -180,6 +180,19 @@ app.put('/api/pointages/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/pointages/batch', async (req, res) => {
+  try {
+    const { semaine, site } = req.query;
+    if (!semaine) {
+      return res.status(400).json({ error: 'La semaine est requise.' });
+    }
+    const result = await db.deletePointagesBySemaine(semaine, site);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // EPI Programmes routes
 app.get('/api/epi-programmes', async (req, res) => {
   try {

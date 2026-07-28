@@ -95,9 +95,14 @@ export default function CalculPaie() {
       semaine
     ].filter(Boolean))];
     
-    // Filter by selected year if applicable (expecting 'YYYY-SXX' format)
+    // Filter by selected year
     if (annee) {
-      uniqueWeeks = uniqueWeeks.filter(w => w.startsWith(annee + '-'));
+      uniqueWeeks = uniqueWeeks.filter(w => {
+        if (w.match(/^\d{4}-S\d+$/)) {
+          return w.startsWith(annee + '-');
+        }
+        return w.includes(annee);
+      });
     }
     
     uniqueWeeks = uniqueWeeks.sort().reverse();
@@ -1060,10 +1065,21 @@ export default function CalculPaie() {
 
   const getWeeksPendingSummaries = () => {
     const allRecords = [...pointages, ...paies, ...calculatedPaie];
-    const uniqueWeeks = [...new Set([
+    let uniqueWeeks = [...new Set([
       ...allRecords.map(r => r.semaine),
       semaine
-    ].filter(Boolean))].sort().reverse();
+    ].filter(Boolean))];
+
+    if (annee) {
+      uniqueWeeks = uniqueWeeks.filter(w => {
+        if (w.match(/^\d{4}-S\d+$/)) {
+          return w.startsWith(annee + '-');
+        }
+        return w.includes(annee);
+      });
+    }
+
+    uniqueWeeks = uniqueWeeks.sort().reverse();
 
     return uniqueWeeks.map(weekVal => {
       let pendingAmount = 0;
@@ -1071,7 +1087,8 @@ export default function CalculPaie() {
       let totalWorkersCount = 0;
       const sitesSet = new Set();
 
-      if (weekVal === semaine && calculatedPaie.length > 0) {
+      // Verify calculatedPaie belongs to the current week to avoid stale state race conditions
+      if (weekVal === semaine && calculatedPaie.length > 0 && calculatedPaie.some(p => p.semaine === weekVal)) {
         calculatedPaie.forEach(p => {
           totalWorkersCount++;
           if (!p.deja_paye) {
@@ -1232,7 +1249,42 @@ export default function CalculPaie() {
               onChange={(e) => setSemaine(e.target.value)}
             >
               <option value="">Sélectionner une semaine...</option>
-              {getUniqueWeekOptions().map((opt) => (
+              {getUniqueWeekOptions()
+                .filter(opt => {
+                  // Toujours afficher la semaine actuellement sélectionnée
+                  if (opt.value === semaine) return true;
+                  
+                  // Calculer l'état de paiement global de la semaine (ignorer les filtres locaux comme siteFilter)
+                  const paiesForWeek = paies.filter(p => p.semaine === opt.value);
+                  const pointagesForWeek = pointages.filter(p => p.semaine === opt.value);
+                  
+                  const workerIdsInWeek = [...new Set([
+                    ...paiesForWeek.map(p => Number(p.ouvrier_id)),
+                    ...pointagesForWeek.map(p => Number(p.ouvrier_id))
+                  ])];
+
+                  if (workerIdsInWeek.length === 0) return true; // S'il n'y a personne, on la garde par sécurité (cas rare)
+
+                  // Vérifier s'il reste au moins un ouvrier non payé dans TOUTE la semaine (tous chantiers confondus)
+                  let hasPending = false;
+                  for (const oId of workerIdsInWeek) {
+                    const pRecord = paiesForWeek.find(p => Number(p.ouvrier_id) === oId);
+                    if (pRecord) {
+                      const isRecPaid = pRecord.paye === true || pRecord.paye === 1 || pRecord.paye === '1' || pRecord.deja_paye === true;
+                      if (!isRecPaid) {
+                        hasPending = true;
+                        break;
+                      }
+                    } else {
+                      // S'il a un pointage mais pas de paie, il est forcément en attente
+                      hasPending = true;
+                      break;
+                    }
+                  }
+
+                  return hasPending;
+                })
+                .map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
@@ -1472,7 +1524,10 @@ export default function CalculPaie() {
               </div>
             </div>
 
-            {/* Grille des Cartes par Semaine : Montants en Attente */}
+              </>
+            )}
+
+            {/* Grille des Cartes par Semaine : Montants en Attente (Lié aux filtres) */}
             <div className="mt-6 pt-5 border-t border-amber-300/60">
               <div className="flex items-center justify-between mb-3">
                 <h5 className="font-extrabold text-sm text-amber-950 flex items-center gap-2">
@@ -1575,108 +1630,6 @@ export default function CalculPaie() {
                   ))}
                 </div>
               )}
-              </div>
-              </>
-            )}
-
-            {/* Grille des Cartes par Semaine : Déjà Réglés */}
-            <div className={pendingWeeks.length > 0 ? "mt-8 pt-6 border-t-2 border-emerald-300/40" : ""}>
-              <div className="flex items-center justify-between mb-3">
-                <h5 className="font-extrabold text-sm text-emerald-950 flex items-center gap-2">
-                  <CheckCircle2 size={16} className="text-emerald-600" />
-                  Semaines entièrement réglées :
-                </h5>
-                <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full">
-                  {settledWeeks.length} semaine(s) concernée(s)
-                </span>
-              </div>
-
-              {settledWeeks.length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                  {settledWeeks.map(weekSummary => (
-                    <div
-                      key={weekSummary.semaine}
-                      onClick={() => {
-                        setSemaine(weekSummary.semaine);
-                        setStatutFilter('regles');
-                      }}
-                      className={`relative overflow-hidden rounded-2xl p-5 min-h-[180px] transition-all duration-300 transform hover:-translate-y-1 cursor-pointer border-2 shadow-sm flex flex-col justify-between group ${
-                        weekSummary.isSelected
-                          ? 'bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-700 text-white border-emerald-300 shadow-emerald-500/25 scale-[1.02] ring-4 ring-emerald-400/30'
-                          : 'bg-emerald-50/50 hover:bg-emerald-50 text-gray-900 border-emerald-200 shadow-emerald-500/5 hover:border-emerald-400 hover:shadow-md'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-2 mb-2">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider ${
-                            weekSummary.isSelected
-                              ? 'bg-white/20 text-white border border-white/30'
-                              : 'bg-emerald-100 text-emerald-900 border border-emerald-200 font-mono'
-                          }`}>
-                            {weekSummary.semaine}
-                          </span>
-                          {weekSummary.isSelected ? (
-                            <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider bg-black/20 px-2 py-0.5 rounded-full text-emerald-100">
-                              <Sparkles size={11} className="animate-pulse text-emerald-300" /> Affichée
-                            </span>
-                          ) : (
-                            <span className="text-[10px] font-extrabold text-emerald-700 bg-white border border-emerald-200 px-2 py-0.5 rounded-full">
-                              Cliquer pour voir
-                            </span>
-                          )}
-                        </div>
-
-                        <h6 className={`font-black text-sm leading-snug mt-2 ${
-                          weekSummary.isSelected ? 'text-white' : 'text-gray-900'
-                        }`}>
-                          {weekSummary.intervalle || weekSummary.label}
-                        </h6>
-
-                        {weekSummary.sites.length > 0 && (
-                          <div className="flex items-center gap-1 mt-2 flex-wrap">
-                            {weekSummary.sites.map(s => (
-                              <span key={s} className={`text-[10px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 uppercase ${
-                                weekSummary.isSelected ? 'bg-emerald-900/40 text-emerald-100' : 'bg-white text-gray-700 border border-gray-200'
-                              }`}>
-                                <Building2 size={10} /> {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="mt-4 pt-3 border-t border-current/15 flex items-end justify-between gap-2">
-                        <div>
-                          <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-0.5 ${
-                            weekSummary.isSelected ? 'text-emerald-100' : 'text-emerald-800'
-                          }`}>
-                            Statut
-                          </span>
-                          <span className={`text-sm font-black flex items-center gap-1 ${
-                            weekSummary.isSelected ? 'text-white' : 'text-emerald-600'
-                          }`}>
-                            <CheckCircle2 size={14} /> Payé intégralement
-                          </span>
-                        </div>
-                        <div className="text-right flex-shrink-0">
-                          <span className={`text-[10px] font-extrabold uppercase tracking-wider block mb-0.5 ${
-                            weekSummary.isSelected ? 'text-emerald-100' : 'text-gray-500'
-                          }`}>
-                            Ouvriers
-                          </span>
-                          <span className={`text-xs font-black px-2.5 py-1 rounded-xl block ${
-                            weekSummary.isSelected
-                              ? 'bg-white text-emerald-600 shadow-sm'
-                              : 'bg-emerald-100 text-emerald-900 group-hover:bg-emerald-200'
-                          }`}>
-                            {weekSummary.totalWorkersCount} <span className="text-[10px] font-semibold opacity-75">réglés</span>
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-amber-300/40">
               <span className="text-xs font-black text-amber-950 mr-2 flex items-center gap-1">
@@ -1692,16 +1645,7 @@ export default function CalculPaie() {
               >
                 <Clock size={14} /> ⏳ En attente / Non effectués ({calculatedPaie.filter(p => !p.deja_paye).length})
               </button>
-              <button
-                onClick={() => setStatutFilter('regles')}
-                className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-xs ${
-                  statutFilter === 'regles'
-                    ? 'bg-emerald-700 text-white shadow-md scale-105 ring-2 ring-emerald-400'
-                    : 'bg-white/90 text-emerald-900 hover:bg-emerald-100 border border-emerald-300'
-                }`}
-              >
-                <CheckCircle2 size={14} /> ✅ Déjà Réglés ({calculatedPaie.filter(p => p.deja_paye).length})
-              </button>
+
               <button
                 onClick={() => setStatutFilter('tous')}
                 className={`px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center gap-2 shadow-xs ${

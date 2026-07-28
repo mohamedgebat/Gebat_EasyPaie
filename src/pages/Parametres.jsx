@@ -6,7 +6,7 @@ import {
   Sliders, HardDrive, Cpu, Sparkles, Building2, Layers, Users,
   UserCheck, UserPlus, Lock, Key, Award, ShieldCheck, Eye, EyeOff, Mail
 } from 'lucide-react';
-import { formatCurrency } from '../lib/utils';
+import { formatCurrency, formatWeekLabel } from '../lib/utils';
 import gebatLogo from '../assets/logo_gebat.png';
 
 export default function Parametres() {
@@ -24,6 +24,8 @@ export default function Parametres() {
   const [newSiteLimit, setNewSiteLimit] = useState('');
   const [saving, setSaving] = useState(false);
   const [dbStats, setDbStats] = useState({ ouvriers: 0, pointages: 0, paies: 0 });
+  const [importedWeeks, setImportedWeeks] = useState([]);
+  const [selectedWeekToDelete, setSelectedWeekToDelete] = useState('');
 
   // Users Management State
   const [users, setUsers] = useState([]);
@@ -88,9 +90,27 @@ export default function Parametres() {
         apiFetch('/api/paies'),
       ]);
       if (ouvriersRes.ok && pointagesRes.ok && paiesRes.ok) {
+        const pointagesData = await pointagesRes.json();
+        
+        // Extraire les semaines uniques avec leur chantier
+        const weeksMap = new Map();
+        pointagesData.forEach(p => {
+          if (p.semaine) {
+            const key = `${p.semaine}__${p.site || ''}`;
+            if (!weeksMap.has(key)) {
+              weeksMap.set(key, { 
+                semaine: p.semaine, 
+                site: p.site || '',
+                label: formatWeekLabel(p.semaine, pointagesData.filter(pt => pt.site === p.site))
+              });
+            }
+          }
+        });
+        setImportedWeeks(Array.from(weeksMap.values()));
+
         setDbStats({
           ouvriers: (await ouvriersRes.json()).length || 0,
-          pointages: (await pointagesRes.json()).length || 0,
+          pointages: pointagesData.length || 0,
           paies: (await paiesRes.json()).length || 0,
         });
       }
@@ -234,6 +254,29 @@ export default function Parametres() {
           fetchUsers();
         } else {
           alert("Erreur lors de la suppression de l'utilisateur.");
+        }
+      } catch (err) {
+        console.error(err);
+        alert("Erreur de connexion au serveur.");
+      }
+    }
+  };
+
+  const handleDeleteBatch = async (semaine, site) => {
+    if (!semaine) return;
+    const siteText = site ? ` pour le chantier ${site}` : '';
+    if (window.confirm(`Êtes-vous absolument sûr de vouloir supprimer tous les pointages de la "${semaine}"${siteText} ? Cette action est irréversible.`)) {
+      try {
+        const queryParams = new URLSearchParams({ semaine, site: site || '' }).toString();
+        const res = await apiFetch(`/api/pointages/batch?${queryParams}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        if (res.ok) {
+          alert(`Les pointages de la ${semaine} ont été supprimés avec succès.`);
+          fetchDbStats(); // Refresh lists
+        } else {
+          alert("Erreur lors de la suppression du lot.");
         }
       } catch (err) {
         console.error(err);
@@ -765,6 +808,45 @@ export default function Parametres() {
             </div>
 
             <div className="space-y-4">
+              {/* Nouvelle section pour la suppression par lot */}
+              <div className="p-5 bg-amber-50/80 rounded-2xl border-2 border-amber-200 space-y-3">
+                <div className="flex items-center gap-2 text-amber-900 font-black text-xs">
+                  <Trash2 size={18} className="text-amber-600 flex-shrink-0" />
+                  SUPPRIMER UN FICHIER IMPORTÉ (PAR SEMAINE)
+                </div>
+                <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                  Si vous avez importé un fichier Excel par erreur, vous pouvez supprimer toutes les données de cette semaine spécifique sans toucher au reste.
+                </p>
+                <div className="flex gap-2">
+                  <select
+                    className="flex-1 px-3 py-2.5 bg-white border border-amber-300 rounded-xl text-xs font-bold text-gray-900 focus:border-amber-500 outline-none"
+                    value={selectedWeekToDelete}
+                    onChange={(e) => setSelectedWeekToDelete(e.target.value)}
+                  >
+                    <option value="">-- Sélectionner le fichier (semaine) à annuler --</option>
+                    {importedWeeks.map((week, idx) => (
+                      <option key={idx} value={`${week.semaine}__${week.site}`}>
+                        {week.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => {
+                      if (!selectedWeekToDelete) {
+                        alert('Veuillez sélectionner une semaine à supprimer.');
+                        return;
+                      }
+                      const [semaine, site] = selectedWeekToDelete.split('__');
+                      handleDeleteBatch(semaine, site);
+                      setSelectedWeekToDelete('');
+                    }}
+                    className="px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl shadow-md text-xs transition-all flex items-center gap-2"
+                  >
+                    Effacer
+                  </button>
+                </div>
+              </div>
+
               <div className="p-4 bg-blue-50/70 rounded-2xl border border-blue-100 text-xs text-blue-900 leading-relaxed flex items-start gap-3">
                 <HardDrive size={20} className="text-blue-600 flex-shrink-0 mt-0.5" />
                 <div>

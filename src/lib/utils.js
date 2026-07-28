@@ -53,50 +53,47 @@ export function formatShortDate(dateVal) {
 
 export function formatWeekLabel(weekStr, records = []) {
   if (!weekStr) return '-';
-  const yearPart = weekStr.includes('-S') ? weekStr.split('-S')[0] : '';
-  const wNum = weekStr.includes('-S') ? weekStr.split('-S')[1] : weekStr;
+
+  let startDateStr = null;
+  let endDateStr = null;
+  const sites = new Set();
+
+  records.forEach(r => {
+    if (r.semaine === weekStr) {
+      if (r.site) sites.add(r.site);
+      if (!startDateStr && r.date_debut) startDateStr = r.date_debut;
+      if (!endDateStr && r.date_fin) endDateStr = r.date_fin;
+    }
+  });
+
+  const formatYYYYMMDD = (dStr) => {
+    if (!dStr) return '';
+    const d = new Date(String(dStr).split('T')[0]);
+    if (isNaN(d.getTime())) return dStr;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}/${m}/${day}`;
+  };
+
+  let baseLabel = weekStr;
   
-  const yearPrefix = yearPart ? `${yearPart} - ` : '';
-
-  const recWithInterval = records.find(r => r.semaine === weekStr && r.date_debut && r.date_fin);
-  if (recWithInterval) {
-    return `${yearPrefix}Sem ${wNum} (${formatShortDate(recWithInterval.date_debut)} au ${formatShortDate(recWithInterval.date_fin)})`;
-  }
-
-  const recWithDate = records.find(r => r.semaine === weekStr && (r.date_pointage || r.date));
-  if (recWithDate) {
-    const d = new Date(recWithDate.date_pointage || recWithDate.date);
-    if (!isNaN(d.getTime())) {
-      const day = d.getDay();
-      const diffToFriday = day >= 5 ? (5 - day) : (-2 - day);
-      const friday = new Date(new Date(d).setDate(d.getDate() + diffToFriday));
-      const thursday = new Date(new Date(friday).setDate(friday.getDate() + 6));
-      return `${yearPrefix}Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
+  if (startDateStr && endDateStr) {
+    baseLabel = `${formatYYYYMMDD(startDateStr)}-${formatYYYYMMDD(endDateStr)}`;
+  } else {
+    // Si on a pas de dates explicites mais qu'on a le format S24-2023, on parse
+    const match = weekStr.match(/^(\d{4})-S(\d+)$/);
+    if (match) {
+      baseLabel = `Sem ${match[2]} (${match[1]})`;
     }
   }
 
-  if (weekStr.includes('-S')) {
-    try {
-      const [yearStr, wStr] = weekStr.split('-S');
-      const year = parseInt(yearStr, 10);
-      const week = parseInt(wStr, 10);
-      if (!isNaN(year) && !isNaN(week)) {
-        const simple = new Date(year, 0, 1 + (week - 1) * 7);
-        const dayOfWeek = simple.getDay();
-        const isoWeekStart = new Date(simple);
-        if (dayOfWeek <= 4) {
-          isoWeekStart.setDate(simple.getDate() - simple.getDay() + 1);
-        } else {
-          isoWeekStart.setDate(simple.getDate() + 8 - simple.getDay());
-        }
-        const friday = new Date(new Date(isoWeekStart).setDate(isoWeekStart.getDate() - 3));
-        const thursday = new Date(new Date(friday).setDate(friday.getDate() + 6));
-        return `${yearPrefix}Sem ${wNum} (${formatShortDate(friday)} au ${formatShortDate(thursday)})`;
-      }
-    } catch (e) {}
+  const siteArray = Array.from(sites).filter(Boolean);
+  if (siteArray.length > 0) {
+    baseLabel = `${baseLabel} (Chantier: ${siteArray.join(', ')})`;
   }
 
-  return `${yearPrefix}Sem ${wNum}`;
+  return baseLabel;
 }
 
 export function getWeekDateRange(weekStr, records = []) {
