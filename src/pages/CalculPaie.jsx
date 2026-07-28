@@ -573,6 +573,12 @@ export default function CalculPaie() {
     }
   }, [pointages, ponctions, loyers, paiementsLoyer, ouvriers, paies, siteFilter, qualificationFilter, dateDebut, dateFin, datePaie, semaine]);
 
+  const getDynamicWeeklyDeduction = (ouvrierId) => {
+    const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrierId) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
+    const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+    return totalPaid === 0 ? 5000 : 3000;
+  };
+
   const handlePonctionChange = (index, newAmount) => {
     setCalculatedPaie(prev => prev.map((paie, idx) => {
       if (idx !== index || paie.deja_paye) return paie;
@@ -1810,7 +1816,7 @@ export default function CalculPaie() {
                           <span
                             className="text-gray-400 font-bold cursor-pointer hover:text-red-600 transition-colors inline-block py-1 px-2"
                             title={!paie.deja_paye ? "Cliquez pour ajouter manuellement une déduction EPI" : "Aucune déduction EPI"}
-                            onClick={() => !paie.deja_paye && handlePonctionChange(origIndex, 3000)}
+                            onClick={() => !paie.deja_paye && handlePonctionChange(origIndex, getDynamicWeeklyDeduction(paie.ouvrier_id))}
                           >
                             -
                           </span>
