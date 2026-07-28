@@ -576,7 +576,7 @@ export default function CalculPaie() {
   const getDynamicWeeklyDeduction = (ouvrierId) => {
     const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrierId) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
     const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
-    return totalPaid === 0 ? 5000 : 3000;
+    return totalPaid === 0 ? 5000 : 4000;
   };
 
   const handlePonctionChange = (index, newAmount) => {

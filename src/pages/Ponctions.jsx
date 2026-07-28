@@ -389,7 +389,7 @@ function PonctionsContent() {
     const site = worker?.site || '';
     const epiLimit = getEpiLimit(site, workerId);
     const total = getTotalPonctions(workerId);
-    const weeklyDeduction = total === 0 ? 5000 : (settings?.epi_weekly_deduction || 3000);
+    const weeklyDeduction = total === 0 ? 5000 : 4000;
     if (total < epiLimit) {
       return Math.min(weeklyDeduction, epiLimit - total);
     }
@@ -953,7 +953,7 @@ function PonctionsContent() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Retenue Hebdo Type</span>
-            <div className="text-2xl font-black text-amber-600 mt-1">5 000 / 3 000</div>
+            <div className="text-2xl font-black text-amber-600 mt-1">5 000 / 4 000</div>
             <p className="text-xs text-amber-700 font-semibold mt-1 flex items-center gap-1">
               <Calendar size={12} /> 1ère sem. / suivantes
             </p>
@@ -1387,7 +1387,7 @@ function PonctionsContent() {
                     setFormData({
                       ouvrier_id: selectedWorkerData.id,
                       date: new Date().toISOString().split('T')[0],
-                      montant: getNextDeduction(selectedWorkerData.id) || (getTotalPonctions(selectedWorkerData.id) === 0 ? 5000 : 3000),
+                      montant: getNextDeduction(selectedWorkerData.id) || (getTotalPonctions(selectedWorkerData.id) === 0 ? 5000 : 4000),
                       motif: 'Retenue EPI hebdomadaire',
                     });
                     setShowModal(true);
@@ -1907,7 +1907,7 @@ function PonctionsContent() {
                   min="0"
                 />
                 <p className="text-[11px] text-purple-600 font-bold mt-1">
-                  Standard : 5 000 FCFA (1ère fois), 3 000 FCFA (suivantes)
+                  Standard : 5 000 FCFA (1ère fois), 4 000 FCFA (suivantes)
                 </p>
               </div>
 
