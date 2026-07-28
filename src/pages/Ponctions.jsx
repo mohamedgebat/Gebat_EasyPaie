@@ -953,9 +953,9 @@ function PonctionsContent() {
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex items-center justify-between hover:shadow-md transition-shadow">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-gray-400">Retenue Hebdo Type</span>
-            <div className="text-2xl font-black text-amber-600 mt-1">5 000 / 4 000</div>
+            <div className="text-2xl font-black text-amber-600 mt-1">5 000 / Reste</div>
             <p className="text-xs text-amber-700 font-semibold mt-1 flex items-center gap-1">
-              <Calendar size={12} /> 1ère sem. / suivantes
+              <Calendar size={12} /> 1ère sem. / Max 4 000
             </p>
           </div>
           <div className="w-14 h-14 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center">
@@ -1907,7 +1907,7 @@ function PonctionsContent() {
                   min="0"
                 />
                 <p className="text-[11px] text-purple-600 font-bold mt-1">
-                  Standard : 5 000 FCFA (1ère fois), 4 000 FCFA (suivantes)
+                  Standard : 5 000 FCFA (1ère fois), puis ajusté au Reste à payer (max 4 000 FCFA)
                 </p>
               </div>
 
