@@ -118,12 +118,21 @@ export default function WorkerDetails() {
 
   const getEpiLimit = () => {
     const siteStr = String(worker?.site || '').toLowerCase();
+    
+    let hasBotteSecurite = false;
+    if (epiFournis.length > 0) {
+      hasBotteSecurite = epiFournis.some(e => String(e.equipement || '').trim().toLowerCase() === 'botte de sécurité' || String(e.equipement || '').trim().toLowerCase() === 'botte de securité');
+    }
+
+    if (siteStr.includes('bingerville') || siteStr.includes('bengerville')) {
+      return hasBotteSecurite ? 12000 : 9000;
+    }
+
     try {
       const savedSettings = localStorage.getItem('easypaie_settings');
       if (savedSettings) {
         const parsed = JSON.parse(savedSettings);
         if (parsed?.epi_limits && worker?.site) {
-          if (siteStr.includes('bingerville') || siteStr.includes('bengerville')) return Number(parsed.epi_limits['Bingerville']) || 12000;
           if (siteStr.includes('songon')) return Number(parsed.epi_limits['Songon']) || 9000;
           return Number(parsed.epi_limits[worker.site]) || 9000;
         }
@@ -131,7 +140,7 @@ export default function WorkerDetails() {
     } catch (e) {
       console.error(e);
     }
-    return (siteStr.includes('bingerville') || siteStr.includes('bengerville')) ? 12000 : 9000;
+    return 9000;
   };
 
   const getTotalPonctions = () => {
@@ -1160,14 +1169,19 @@ export default function WorkerDetails() {
                 <form onSubmit={handleAddEpiFourni} className="flex flex-wrap items-end gap-3 bg-gray-50 p-4 rounded-xl border border-gray-200">
                   <div className="flex-1 min-w-[200px]">
                     <label className="block text-xs font-bold text-gray-500 mb-1">Équipement</label>
-                    <input
-                      type="text"
+                    <select
                       required
-                      placeholder="Ex: Casque, Bottes..."
-                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      className="w-full px-3 py-2 rounded-lg border border-gray-300 text-sm bg-white"
                       value={newEpiFourni.equipement}
                       onChange={e => setNewEpiFourni({...newEpiFourni, equipement: e.target.value})}
-                    />
+                    >
+                      <option value="">Sélectionnez un équipement...</option>
+                      <option value="Casque">Casque</option>
+                      <option value="Gilet">Gilet</option>
+                      <option value="Botte Ordinaire">Botte Ordinaire</option>
+                      <option value="Botte de Sécurité">Botte de Sécurité</option>
+                      <option value="Gant">Gant</option>
+                    </select>
                   </div>
                   <div className="w-32">
                     <label className="block text-xs font-bold text-gray-500 mb-1">Prix unitaire</label>

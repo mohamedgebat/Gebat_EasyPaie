@@ -17,6 +17,7 @@ export default function CalculPaie() {
   const [pointages, setPointages] = useState([]);
   const [ponctions, setPonctions] = useState([]);
   const [epiProgrammes, setEpiProgrammes] = useState([]);
+  const [epiFournis, setEpiFournis] = useState([]);
   const [loyers, setLoyers] = useState([]);
   const [paiementsLoyer, setPaiementsLoyer] = useState([]);
   const [ouvriers, setOuvriers] = useState([]);
@@ -40,10 +41,20 @@ export default function CalculPaie() {
     epi_weekly_deduction: 3000,
   });
 
-  const getEpiLimit = (site) => {
+  const getEpiLimit = (site, ouvrierId) => {
     const siteLow = String(site || '').toLowerCase();
+    
+    let hasBotteSecurite = false;
+    if (ouvrierId && epiFournis.length > 0) {
+      const ouvrierEpis = epiFournis.filter(e => Number(e.ouvrier_id) === Number(ouvrierId));
+      hasBotteSecurite = ouvrierEpis.some(e => String(e.equipement || '').trim().toLowerCase() === 'botte de securité');
+    }
+
+    if (siteLow.includes('bingerville') || siteLow.includes('bengerville')) {
+      return hasBotteSecurite ? 12000 : 9000;
+    }
+    
     if (!settings || !settings.epi_limits) return 9000;
-    if (siteLow.includes('bingerville') || siteLow.includes('bengerville')) return Number(settings.epi_limits['Bingerville']) || 12000;
     if (siteLow.includes('songon')) return Number(settings.epi_limits['Songon']) || 9000;
     return Number(settings.epi_limits[site]) || 9000;
   };
@@ -207,7 +218,7 @@ export default function CalculPaie() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [pointagesRes, ponctionsRes, loyersRes, paiementsRes, ouvriersRes, paiesRes, epiProgRes] = await Promise.all([
+      const [pointagesRes, ponctionsRes, loyersRes, paiementsRes, ouvriersRes, paiesRes, epiProgRes, epiFournisRes] = await Promise.all([
         apiFetch('/api/pointages'),
         apiFetch('/api/ponctions'),
         apiFetch('/api/loyers'),
@@ -215,6 +226,7 @@ export default function CalculPaie() {
         apiFetch('/api/ouvriers'),
         apiFetch('/api/paies'),
         apiFetch('/api/epi-programmes'),
+        apiFetch('/api/epi-fournis').catch(() => null),
       ]);
       const pts = await pointagesRes.json();
       setPointages(pts);
@@ -224,6 +236,7 @@ export default function CalculPaie() {
       setOuvriers(await ouvriersRes.json());
       setPaies(await paiesRes.json());
       setEpiProgrammes(await epiProgRes.json().catch(() => []));
+      setEpiFournis(epiFournisRes ? await epiFournisRes.json().catch(() => []) : []);
 
       if (!syncWithLastImport() && pts && pts.length > 0) {
         const sortedPts = [...pts].sort((a, b) => new Date(b.created_at || b.date) - new Date(a.created_at || a.date));
@@ -294,7 +307,7 @@ export default function CalculPaie() {
   const calculatePonction = (ouvrierId, salaireBrut = 0, pointageDate = null) => {
     const worker = ouvriers.find(o => Number(o.id) === Number(ouvrierId));
     const site = worker?.site || '';
-    const epiLimit = getEpiLimit(site);
+    const epiLimit = getEpiLimit(site, ouvrierId);
     const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrierId) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
     const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
 
