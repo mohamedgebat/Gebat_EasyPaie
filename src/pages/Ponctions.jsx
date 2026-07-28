@@ -82,11 +82,21 @@ function PonctionsContent() {
     epi_weekly_deduction: 3000,
   });
 
-  const getEpiLimit = (site) => {
+  const getEpiLimit = (site, ouvrierId) => {
     try {
       const siteLow = String(site || '').toLowerCase();
+      
+      let hasBotteSecurite = false;
+      if (ouvrierId && epiFournis.length > 0) {
+        const workerEpis = epiFournis.filter(e => Number(e.ouvrier_id) === Number(ouvrierId));
+        hasBotteSecurite = workerEpis.some(e => String(e.equipement || '').trim().toLowerCase() === 'botte de sécurité' || String(e.equipement || '').trim().toLowerCase() === 'botte de securité');
+      }
+
+      if (siteLow.includes('bingerville') || siteLow.includes('bengerville')) {
+        return hasBotteSecurite ? 12000 : 9000;
+      }
+
       if (!settings || !settings.epi_limits) return 9000;
-      if (siteLow.includes('bingerville') || siteLow.includes('bengerville')) return Number(settings.epi_limits['Bingerville']) || 12000;
       if (siteLow.includes('songon')) return Number(settings.epi_limits['Songon']) || 9000;
       return Number(settings.epi_limits[site]) || 9000;
     } catch (error) {
@@ -292,7 +302,7 @@ function PonctionsContent() {
     try {
       const selectedWorkerData = ouvriers.find(o => Number(o.id) === Number(selectedWorker));
       const regularTotal = getRegularTotalPonctions(selectedWorker);
-      const limit = getEpiLimit(selectedWorkerData?.site);
+      const limit = getEpiLimit(selectedWorkerData?.site, selectedWorkerData?.id);
       const { remboursement, deduction, valeurRetenue } = computeEpiResult(
         workerStatus === 'parti' ? epiDepartureOption : '',
         regularTotal,
@@ -377,7 +387,7 @@ function PonctionsContent() {
   const getNextDeduction = (workerId) => {
     const worker = ouvriers.find(o => o.id === workerId);
     const site = worker?.site || '';
-    const epiLimit = getEpiLimit(site);
+    const epiLimit = getEpiLimit(site, workerId);
     const total = getTotalPonctions(workerId);
     const weeklyDeduction = settings?.epi_weekly_deduction || 3000;
     if (total < epiLimit) {
@@ -421,7 +431,7 @@ function PonctionsContent() {
 
       // 4. Caution Status filter
       const total = getTotalPonctions(ouvrier.id);
-      const limit = getEpiLimit(ouvrier.site);
+      const limit = getEpiLimit(ouvrier.site, ouvrier.id);
       let matchesCaution = true;
       if (cautionStatusFilter === 'non_soldes') {
         matchesCaution = total < limit && !(ouvrier.statut === 'parti' && Boolean(ouvrier.epi_departure_option));
@@ -488,7 +498,7 @@ function PonctionsContent() {
     ouvriers.forEach(o => {
       const total = getTotalPonctions(o.id);
       totalCollected += total;
-      const limit = getEpiLimit(o.site);
+      const limit = getEpiLimit(o.site, o.id);
       if (total >= limit && total > 0) {
         paidOffCount++;
       } else if (total > 0 && total < limit) {
@@ -503,7 +513,7 @@ function PonctionsContent() {
   const workerTotal = selectedWorkerData ? workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0) : 0;
   const regularWorkerTotal = selectedWorkerData ? getRegularTotalPonctions(selectedWorker, workerPonctions) : 0;
   const workerSite = selectedWorkerData?.site || '';
-  const workerEpiLimit = getEpiLimit(workerSite);
+  const workerEpiLimit = getEpiLimit(workerSite, selectedWorkerData?.id);
   const isPaidOff = workerTotal >= workerEpiLimit;
   const isWorkerAlreadyDeparted = Boolean(selectedWorkerData && selectedWorkerData.statut === 'parti' && Boolean(selectedWorkerData.epi_departure_option || selectedWorkerData.date_depart || selectedWorkerData.epi_departure_date));
   const isDepartedLocked = isWorkerAlreadyDeparted && !isAdmin;
@@ -534,7 +544,7 @@ function PonctionsContent() {
           })
         : filteredOuvriers.map(o => {
             const total = getTotalPonctions(o.id);
-            const limit = getEpiLimit(o.site);
+            const limit = getEpiLimit(o.site, o.id);
             const reste = Math.max(0, limit - total);
             const statut = total >= limit && total > 0 ? 'Soldée' : (total > 0 ? 'En cours' : 'Aucune');
             
@@ -566,20 +576,20 @@ function PonctionsContent() {
           ]
         : [
             'TOTAL GÉNÉRAL', '', '', '', '',
-            filteredOuvriers.reduce((sum, o) => sum + getEpiLimit(o.site), 0),
+            filteredOuvriers.reduce((sum, o) => sum + getEpiLimit(o.site, o.id), 0),
             filteredOuvriers.reduce((sum, o) => sum + getTotalPonctions(o.id), 0),
-            filteredOuvriers.reduce((sum, o) => sum + Math.max(0, getEpiLimit(o.site) - getTotalPonctions(o.id)), 0),
+            filteredOuvriers.reduce((sum, o) => sum + Math.max(0, getEpiLimit(o.site, o.id) - getTotalPonctions(o.id)), 0),
             '',
             filteredOuvriers.reduce((sum, o) => {
               const wP = ponctions.filter(p => p.ouvrier_id === o.id);
               const reg = getRegularTotalPonctions(o.id, wP);
-              const res = computeEpiResult(o.epi_departure_option || '', reg, Number(o.epi_lost_amount) || 0, getEpiLimit(o.site));
+              const res = computeEpiResult(o.epi_departure_option || '', reg, Number(o.epi_lost_amount) || 0, getEpiLimit(o.site, o.id));
               return sum + (res ? res.toDeduct : 0);
             }, 0),
             filteredOuvriers.reduce((sum, o) => {
               const wP = ponctions.filter(p => p.ouvrier_id === o.id);
               const reg = getRegularTotalPonctions(o.id, wP);
-              const res = computeEpiResult(o.epi_departure_option || '', reg, Number(o.epi_lost_amount) || 0, getEpiLimit(o.site));
+              const res = computeEpiResult(o.epi_departure_option || '', reg, Number(o.epi_lost_amount) || 0, getEpiLimit(o.site, o.id));
               return sum + (res ? res.toRefund : 0);
             }, 0)
           ];
@@ -702,7 +712,7 @@ function PonctionsContent() {
           })
         : filteredOuvriers.map(o => {
             const total = getTotalPonctions(o.id);
-            const limit = getEpiLimit(o.site);
+            const limit = getEpiLimit(o.site, o.id);
             const reste = Math.max(0, limit - total);
             const statut = total >= limit && total > 0 ? 'Soldée' : (total > 0 ? 'En cours' : 'Aucune');
             const wPonctions = ponctions.filter(p => p.ouvrier_id === o.id);
@@ -1119,7 +1129,7 @@ function PonctionsContent() {
                 const nextDeduction = getNextDeduction(ouvrier.id);
                 const lastDeductionDate = getLastDeductionDate(ouvrier.id);
                 const workerSite = ouvrier.site || 'Chantier';
-                const workerEpiLimit = getEpiLimit(workerSite);
+                const workerEpiLimit = getEpiLimit(workerSite, ouvrier.id);
                 const isWorkerPaidOff = total >= workerEpiLimit && total > 0;
                 const isSelected = selectedWorker === ouvrier.id;
 
@@ -1852,17 +1862,17 @@ function PonctionsContent() {
                     .slice()
                     .sort((a, b) => {
                       const totalA = getTotalPonctions(a.id);
-                      const limitA = getEpiLimit(a.site);
+                      const limitA = getEpiLimit(a.site, a.id);
                       const isPaidA = totalA >= limitA && totalA > 0;
                       const totalB = getTotalPonctions(b.id);
-                      const limitB = getEpiLimit(b.site);
+                      const limitB = getEpiLimit(b.site, b.id);
                       const isPaidB = totalB >= limitB && totalB > 0;
                       if (isPaidA !== isPaidB) return isPaidA ? 1 : -1;
                       return (a.nom || '').localeCompare(b.nom || '');
                     })
                     .map((ouvrier) => {
                       const total = getTotalPonctions(ouvrier.id);
-                      const limit = getEpiLimit(ouvrier.site);
+                      const limit = getEpiLimit(ouvrier.site, ouvrier.id);
                       const reste = Math.max(0, limit - total);
                       const isSolded = total >= limit && total > 0;
                       const isParti = Boolean(ouvrier.statut === 'parti' && Boolean(ouvrier.epi_departure_option || ouvrier.date_depart || ouvrier.epi_departure_date)) && !isAdmin;
