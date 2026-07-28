@@ -389,9 +389,8 @@ function PonctionsContent() {
     const site = worker?.site || '';
     const epiLimit = getEpiLimit(site, workerId);
     const total = getTotalPonctions(workerId);
-    const weeklyDeduction = total === 0 ? 5000 : 4000;
     if (total < epiLimit) {
-      return Math.min(weeklyDeduction, epiLimit - total);
+      return total === 0 ? 5000 : (epiLimit - total);
     }
     return 0;
   };
@@ -1387,7 +1386,7 @@ function PonctionsContent() {
                     setFormData({
                       ouvrier_id: selectedWorkerData.id,
                       date: new Date().toISOString().split('T')[0],
-                      montant: getNextDeduction(selectedWorkerData.id) || (getTotalPonctions(selectedWorkerData.id) === 0 ? 5000 : 4000),
+                      montant: getNextDeduction(selectedWorkerData.id) || 0,
                       motif: 'Retenue EPI hebdomadaire',
                     });
                     setShowModal(true);

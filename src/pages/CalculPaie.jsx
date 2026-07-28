@@ -579,10 +579,9 @@ export default function CalculPaie() {
     const epiLimit = getEpiLimit(site, ouvrierId);
     const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrierId) && !p.motif?.includes('Complément caution (Départ') && !p.motif?.includes('EPI non retournés') && !p.motif?.includes('EPI perdus'));
     const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
-    const weeklyDeduction = totalPaid === 0 ? 5000 : 4000;
     
     if (totalPaid < epiLimit) {
-      return Math.min(weeklyDeduction, epiLimit - totalPaid);
+      return totalPaid === 0 ? 5000 : (epiLimit - totalPaid);
     }
     return 0;
   };
