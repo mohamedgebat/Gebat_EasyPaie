@@ -172,8 +172,8 @@ const dbInterface = {
 
   addEpiProgramme: async (data) => {
     const [res] = await pool.query(
-      `INSERT INTO epi_programmes (ouvrier_id, semaines_totales, montant, semaines_exclues) VALUES (?, ?, ?, ?)`,
-      [data.ouvrier_id, Number(data.semaines_totales) || 1, Number(data.montant) || 0, data.semaines_exclues || '']
+      `INSERT INTO epi_programmes (ouvrier_id, semaine, montant) VALUES (?, ?, ?)`,
+      [data.ouvrier_id, data.semaine || '', Number(data.montant) || 0]
     );
     return { id: res.insertId, ...data };
   },

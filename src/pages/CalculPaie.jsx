@@ -331,19 +331,10 @@ export default function CalculPaie() {
       return { montant: Number(existingPeriodPonction.montant) || 0, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid, epiLimit };
     }
 
-    // 2. Sinon, vérifier si une ponction EPI est programmée (par nombre de semaines)
+    // 2. Sinon, vérifier si une ponction EPI est programmée pour cette semaine spécifique
     const activeProgram = epiProgrammes.find(e => {
       if (Number(e.ouvrier_id) !== Number(ouvrierId)) return false;
-      
-      // Vérifier si la semaine actuelle est dans les semaines exclues
-      if (e.semaines_exclues) {
-        const excludedWeeks = String(e.semaines_exclues).split(',').map(s => s.trim().toUpperCase());
-        const currentWeek = String(semaine).trim().toUpperCase();
-        if (excludedWeeks.includes(currentWeek)) return false;
-      }
-
-      const progPonctionsCount = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${e.id}]`)).length;
-      return progPonctionsCount < Number(e.semaines_totales);
+      return String(e.semaine).trim().toUpperCase() === String(semaine).trim().toUpperCase();
     });
 
     if (activeProgram) {

@@ -27,7 +27,7 @@ export default function WorkerDetails() {
   const [epiFournis, setEpiFournis] = useState([]);
   const [newEpiFourni, setNewEpiFourni] = useState({ equipement: '', prix: '', date_remise: new Date().toISOString().split('T')[0] });
   const [showSuccessPopup, setShowSuccessPopup] = useState(false);
-  const [newProgramme, setNewProgramme] = useState({ semaines_totales: '', montant: '', semaines_exclues: '' });
+  const [newProgramme, setNewProgramme] = useState({ semaine: '', montant: '' });
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('profile'); // 'profile' | 'paies' | 'epi' | 'programme_epi' | 'loyer' | 'pointages'
 
@@ -482,28 +482,24 @@ export default function WorkerDetails() {
 
   const handleAddEpiProgramme = async (e) => {
     e.preventDefault();
-    if (epiProgrammes.length > 0) {
-      alert("Une planification existe déjà. Veuillez l'annuler avant d'en créer une nouvelle.");
+    if (!newProgramme.semaine || !newProgramme.montant) {
+      alert('Veuillez remplir tous les champs (Semaine et Montant).');
       return;
     }
-    if (!newProgramme.semaines_totales || !newProgramme.montant) {
-      alert("Veuillez renseigner le nombre de semaines et le montant.");
-      return;
-    }
-    
     try {
-      const res = await apiFetch('/api/epi-programmes', {
+      const response = await fetch('/api/epi-programmes', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({
           ouvrier_id: worker.id,
-          semaines_totales: newProgramme.semaines_totales,
-          montant: newProgramme.montant,
-          semaines_exclues: newProgramme.semaines_exclues || ''
+          semaine: newProgramme.semaine,
+          montant: newProgramme.montant
         })
       });
-      if (res.ok) {
-        setNewProgramme({ semaines_totales: '', montant: '', semaines_exclues: '' });
+      if (response.ok) {
+        setNewProgramme({ semaine: '', montant: '' });
         fetchWorkerData();
         alert("Programmation enregistrée avec succès !");
       }
@@ -1287,13 +1283,13 @@ export default function WorkerDetails() {
                   <p className="text-xs text-gray-500 font-medium">Définissez des montants à prélever automatiquement selon la semaine lors du calcul de la paie.</p>
                 </div>
                 <form onSubmit={handleAddEpiProgramme} className="flex flex-wrap gap-2 w-full md:w-auto items-end justify-end">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 w-full md:w-auto">
                     <input
-                      type="number"
-                      placeholder="Nbre semaines (ex: 4)"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-44 disabled:bg-gray-100 disabled:text-gray-400"
-                      value={newProgramme.semaines_totales}
-                      onChange={e => setNewProgramme({...newProgramme, semaines_totales: e.target.value})}
+                      type="text"
+                      placeholder="Semaine (ex: SEMAINE 4)"
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-60 disabled:bg-gray-100 disabled:text-gray-400"
+                      value={newProgramme.semaine}
+                      onChange={e => setNewProgramme({...newProgramme, semaine: e.target.value})}
                       disabled={epiProgrammes.length > 0}
                     />
                     <input
@@ -1302,17 +1298,6 @@ export default function WorkerDetails() {
                       className="px-3 py-2 border border-gray-200 rounded-lg text-sm w-32 disabled:bg-gray-100 disabled:text-gray-400"
                       value={newProgramme.montant}
                       onChange={e => setNewProgramme({...newProgramme, montant: e.target.value})}
-                      disabled={epiProgrammes.length > 0}
-                    />
-                  </div>
-                  <div className="flex gap-2 w-full md:w-auto">
-                    <input
-                      type="text"
-                      placeholder="Semaines exclues (ex: SEMAINE 4)"
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-60 disabled:bg-gray-100 disabled:text-gray-400"
-                      value={newProgramme.semaines_exclues}
-                      onChange={e => setNewProgramme({...newProgramme, semaines_exclues: e.target.value})}
-                      title="Séparez les semaines par une virgule si vous en avez plusieurs"
                       disabled={epiProgrammes.length > 0}
                     />
                     <button 
@@ -1346,42 +1331,29 @@ export default function WorkerDetails() {
                     <thead>
                       <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider border-b border-gray-200">
                         <th className="py-3 px-4">Date de Création</th>
-                        <th className="py-3 px-4">Nb. de semaines</th>
+                        <th className="py-3 px-4">Semaine</th>
                         <th className="py-3 px-4 text-right">Montant à prélever</th>
                         <th className="py-3 px-4 text-center">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100 font-semibold text-gray-700">
                       {epiProgrammes.length > 0 ? (
-                        epiProgrammes.map((prog) => {
-                          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
-                          return (
-                            <tr key={prog.id} className="hover:bg-sky-50/20 transition-colors">
-                              <td className="py-3 px-4 font-mono">{formatDate(prog.created_at)}</td>
-                              <td className="py-3 px-4 text-sky-800 font-black">
-                                {prog.semaines_totales} semaine(s)
-                                <div className="text-[10px] text-gray-400 font-semibold mt-0.5">
-                                  Déjà prélevé : {ponctionsReliees} fois
-                                </div>
-                                {prog.semaines_exclues && (
-                                  <div className="text-[9px] text-rose-500 font-bold mt-0.5" title="Ces semaines seront ignorées lors du calcul">
-                                    Exclut: {prog.semaines_exclues}
-                                  </div>
-                                )}
-                              </td>
-                              <td className="py-3 px-4 text-right text-amber-600 font-black">{formatCurrency(prog.montant)}</td>
-                              <td className="py-3 px-4 text-center">
-                                <button
-                                  onClick={() => handleDeleteEpiProgramme(prog.id)}
-                                  className="text-red-500 hover:text-red-700 p-1"
-                                  title="Supprimer"
-                                >
-                                  <XCircle size={16} />
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })
+                        epiProgrammes.map((prog) => (
+                          <tr key={prog.id} className="hover:bg-sky-50/20 transition-colors">
+                            <td className="py-3 px-4 font-mono">{formatDate(prog.created_at)}</td>
+                            <td className="py-3 px-4">{prog.semaine}</td>
+                            <td className="py-3 px-4 text-right text-sky-700">{formatCurrency(prog.montant)}</td>
+                            <td className="py-3 px-4 text-center">
+                              <button
+                                onClick={() => handleDeleteEpiProgramme(prog.id)}
+                                className="text-red-500 hover:text-red-700 p-1"
+                                title="Supprimer"
+                              >
+                                <XCircle size={16} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))
                       ) : (
                         <tr>
                           <td colSpan="4" className="text-center py-12 text-gray-400">
