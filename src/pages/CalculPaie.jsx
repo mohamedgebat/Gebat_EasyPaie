@@ -593,9 +593,16 @@ export default function CalculPaie() {
       if (idx !== index || paie.deja_paye) return paie;
       const val = Math.max(0, Number(newAmount) || 0);
       const net = (Number(paie.salaire_brut) || 0) - val - (Number(paie.loyer) || 0) + (Number(paie.epi_remboursement) || 0) - (Number(paie.epi_deduction) || 0);
+      
+      // Calculate the previous paid amount excluding this week's current ponction
+      const alreadyPaid = paie.has_existing_ponction 
+        ? (Number(paie.total_cotisations_epi) || 0) - (Number(paie.ponction) || 0)
+        : (Number(paie.total_cotisations_epi) || 0) - (Number(paie.ponction) || 0);
+        
       return {
         ...paie,
         ponction: val,
+        total_cotisations_epi: alreadyPaid + val,
         net_a_payer: net,
         is_custom_ponction: true,
       };
