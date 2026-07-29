@@ -922,35 +922,35 @@ export default function Loyers() {
                 </div>
               </div>
 
-              {formData.type === 'court_terme' && (
-                <div className="grid grid-cols-2 gap-4 bg-orange-50/50 p-4 rounded-xl border border-orange-100">
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Mois cible *</label>
-                    <select
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-orange-500"
-                      value={formData.mois}
-                      onChange={(e) => setFormData({ ...formData, mois: e.target.value })}
-                      required
-                    >
-                      {['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'].map(m => (
-                        <option key={m} value={m} className="capitalize">{m}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-gray-700 mb-1">Année *</label>
-                    <input
-                      type="number"
-                      className="w-full px-3 py-2 bg-white border border-gray-200 rounded-xl text-sm font-bold text-gray-900 focus:border-orange-500"
-                      value={formData.annee}
-                      onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) || new Date().getFullYear() })}
-                      required
-                      min="2020"
-                      max="2030"
-                    />
-                  </div>
+              <div className={`grid grid-cols-2 gap-4 p-4 rounded-xl border transition-colors ${formData.type === 'court_terme' ? 'bg-orange-50/50 border-orange-100' : 'bg-blue-50/50 border-blue-100'}`}>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    {formData.type === 'long_terme' ? 'Mois de début *' : 'Mois cible *'}
+                  </label>
+                  <select
+                    className={`w-full px-3 py-2 bg-white border rounded-xl text-sm font-bold text-gray-900 focus:ring-1 ${formData.type === 'court_terme' ? 'border-orange-200 focus:border-orange-500 focus:ring-orange-500' : 'border-blue-200 focus:border-blue-500 focus:ring-blue-500'}`}
+                    value={formData.mois}
+                    onChange={(e) => setFormData({ ...formData, mois: e.target.value })}
+                    required
+                  >
+                    {['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'].map(m => (
+                      <option key={m} value={m} className="capitalize">{m}</option>
+                    ))}
+                  </select>
                 </div>
-              )}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Année *</label>
+                  <input
+                    type="number"
+                    className={`w-full px-3 py-2 bg-white border rounded-xl text-sm font-bold text-gray-900 focus:ring-1 ${formData.type === 'court_terme' ? 'border-orange-200 focus:border-orange-500 focus:ring-orange-500' : 'border-blue-200 focus:border-blue-500 focus:ring-blue-500'}`}
+                    value={formData.annee}
+                    onChange={(e) => setFormData({ ...formData, annee: parseInt(e.target.value) || new Date().getFullYear() })}
+                    required
+                    min="2020"
+                    max="2030"
+                  />
+                </div>
+              </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 mt-6">
                 <button
