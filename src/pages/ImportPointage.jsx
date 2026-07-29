@@ -566,22 +566,81 @@ export default function ImportPointage() {
     return String(name)
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "") // Enlever les accents
-      .replace(/[^a-zA-Z0-9]/g, '') // Ne garder que les lettres et chiffres (enlève espaces, tirets, etc.)
       .toLowerCase();
+  };
+
+  const cleanAlphanum = (name) => name.replace(/[^a-z0-9]/g, '');
+
+  const levenshteinDistance = (a, b) => {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const matrix = [];
+    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+    for (let i = 1; i <= b.length; i++) {
+      for (let j = 1; j <= a.length; j++) {
+        if (b.charAt(i - 1) === a.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, Math.min(matrix[i][j - 1] + 1, matrix[i - 1][j] + 1));
+        }
+      }
+    }
+    return matrix[b.length][a.length];
+  };
+
+  const areWordsSubset = (words1, words2) => {
+    // Return true if ALL words in shorter array exist in the longer array (allowing 1 typo per word)
+    const shorter = words1.length <= words2.length ? words1 : words2;
+    const longer = words1.length <= words2.length ? words2 : words1;
+    
+    // Ignore single letters unless it's the only word
+    const validShorter = shorter.filter(w => w.length > 1 || shorter.length === 1);
+    
+    if (validShorter.length === 0) return false;
+
+    let matches = 0;
+    for (const w1 of validShorter) {
+      if (longer.some(w2 => w2 === w1 || levenshteinDistance(w1, w2) <= 1)) {
+        matches++;
+      }
+    }
+    return matches === validShorter.length;
   };
 
   const matchWorkerRobust = (workers, nameStr) => {
     if (!nameStr) return null;
-    const targetNorm = normalizeName(nameStr);
+    const targetBase = normalizeName(nameStr);
+    const targetNorm = cleanAlphanum(targetBase);
+    const targetWords = targetBase.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w);
     
     return workers.find((w) => {
-      const nomNorm = normalizeName(w.nom);
-      const prenomNorm = normalizeName(w.prenom);
+      const nomBase = normalizeName(w.nom);
+      const prenomBase = normalizeName(w.prenom);
       
-      const full1Norm = normalizeName(`${w.nom || ''} ${w.prenom || ''}`);
-      const full2Norm = normalizeName(`${w.prenom || ''} ${w.nom || ''}`);
+      const full1Base = `${nomBase} ${prenomBase}`.trim();
+      const full2Base = `${prenomBase} ${nomBase}`.trim();
       
+      const nomNorm = cleanAlphanum(nomBase);
+      const full1Norm = cleanAlphanum(full1Base);
+      const full2Norm = cleanAlphanum(full2Base);
+      
+      // 1. Exact robust match
       if (nomNorm === targetNorm || full1Norm === targetNorm || full2Norm === targetNorm) return true;
+      
+      // 2. Small typos on the whole string (max 2 character difference, but string must be at least 5 chars)
+      if (targetNorm.length > 5 && full1Norm.length > 5) {
+        if (levenshteinDistance(targetNorm, full1Norm) <= 2) return true;
+        if (levenshteinDistance(targetNorm, full2Norm) <= 2) return true;
+        if (levenshteinDistance(targetNorm, nomNorm) <= 2) return true;
+      }
+
+      // 3. Missing words / subsets (e.g. "KACOU YAO FRANCK" vs "KACOU YAO")
+      const dbWords = full1Base.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w);
+      if (dbWords.length > 1 && targetWords.length > 1) {
+        if (areWordsSubset(targetWords, dbWords)) return true;
+      }
+      
       return false;
     });
   };
@@ -861,7 +920,7 @@ export default function ImportPointage() {
               </span>
             </div>
             <h1 className="text-3xl font-black tracking-tight text-white drop-shadow-sm flex items-center gap-3">
-              Conversion & Suivi <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full ml-2">v2.1</span>
+              Conversion & Suivi <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full ml-2">v2.2 (Fuzzy)</span>
             </h1>
             <p className="text-emerald-100 mt-2 max-w-2xl text-sm md:text-base leading-relaxed font-normal">
               Chargez vos classeurs de pointage hebdomadaire (*.xls, *.xlsx) ou fichiers bruts de badgeuse ZKTeco, vérifiez instantanément l'existence des ouvriers en base et générez la paie.
