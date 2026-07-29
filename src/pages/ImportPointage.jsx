@@ -588,7 +588,7 @@ export default function ImportPointage() {
 
   const checkWorkers = async (data) => {
     try {
-      const response = await apiFetch('/api/ouvriers');
+      const response = await apiFetch('/api/ouvriers', { cache: 'no-store' });
       const workers = await response.json();
       
       const unknown = [];
@@ -860,8 +860,8 @@ export default function ImportPointage() {
                 Importation & Analyse GEBAT
               </span>
             </div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white drop-shadow-sm flex items-center gap-3">
-              Conversion & Suivi
+            <h1 className="text-3xl font-black tracking-tight text-white drop-shadow-sm flex items-center gap-3">
+              Conversion & Suivi <span className="text-xs bg-emerald-100 text-emerald-800 px-2 py-1 rounded-full ml-2">v2.1</span>
             </h1>
             <p className="text-emerald-100 mt-2 max-w-2xl text-sm md:text-base leading-relaxed font-normal">
               Chargez vos classeurs de pointage hebdomadaire (*.xls, *.xlsx) ou fichiers bruts de badgeuse ZKTeco, vérifiez instantanément l'existence des ouvriers en base et générez la paie.
