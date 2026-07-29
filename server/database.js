@@ -263,9 +263,9 @@ const dbInterface = {
   addLoyer: async (data) => {
     const created_at = getCurrentTimestamp();
     const [res] = await pool.query(
-      `INSERT INTO loyers (ouvrier_id, mois, annee, montant_mensuel, type, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [data.ouvrier_id, data.mois || '', data.annee || null, Number(data.montant_mensuel) || 0, data.type || 'court_terme', created_at]
+      `INSERT INTO loyers (ouvrier_id, mois, annee, montant_mensuel, nombre_tranches, type, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [data.ouvrier_id, data.mois || '', data.annee || null, Number(data.montant_mensuel) || 0, Number(data.nombre_tranches) || 1, data.type || 'specifique', created_at]
     );
     return { id: res.insertId, ...data, created_at };
   },
@@ -277,6 +277,7 @@ const dbInterface = {
     if (data.site !== undefined) { fields.push('site = ?'); values.push(data.site); }
     if (data.qualification !== undefined) { fields.push('qualification = ?'); values.push(data.qualification); }
     if (data.montant_mensuel !== undefined) { fields.push('montant_mensuel = ?'); values.push(Number(data.montant_mensuel) || 0); }
+    if (data.nombre_tranches !== undefined) { fields.push('nombre_tranches = ?'); values.push(Number(data.nombre_tranches) || 1); }
     if (data.mois !== undefined) { fields.push('mois = ?'); values.push(data.mois); }
     if (data.annee !== undefined) { fields.push('annee = ?'); values.push(data.annee); }
     if (data.type !== undefined) { fields.push('type = ?'); values.push(data.type); }

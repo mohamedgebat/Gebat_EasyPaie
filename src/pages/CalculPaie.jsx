@@ -295,13 +295,23 @@ export default function CalculPaie() {
     );
     if (!loyer) return 0;
     
-    const payment = paiementsLoyer.find(
+    // Récupérer tous les paiements du mois en cours
+    const paymentsThisMonth = paiementsLoyer.filter(
       p => Number(p.ouvrier_id) === Number(ouvrierId) && 
            p.mois?.toLowerCase() === currentMonth && 
            Number(p.annee) === currentYear
     );
     
-    return payment ? 0 : (Number(loyer.montant_mensuel) || 0);
+    const totalPaid = paymentsThisMonth.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+    const montantMensuel = Number(loyer.montant_mensuel) || 0;
+    const nombreTranches = Number(loyer.nombre_tranches) || 1;
+    
+    if (totalPaid >= montantMensuel) return 0;
+    
+    const resteAPayer = montantMensuel - totalPaid;
+    const montantTranche = Math.ceil(montantMensuel / nombreTranches);
+    
+    return Math.min(montantTranche, resteAPayer);
   };
 
   const calculatePonction = (ouvrierId, salaireBrut = 0, pointageDate = null) => {

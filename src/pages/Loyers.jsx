@@ -139,13 +139,21 @@ export default function Loyers() {
     const currentMonth = new Date().toLocaleString('fr-FR', { month: 'long' });
     const currentYear = new Date().getFullYear();
     
-    const payment = paiements.find(
+    const workerPaymentsThisMonth = paiements.filter(
       p => p.ouvrier_id === ouvrierId && 
            p.mois.toLowerCase() === currentMonth.toLowerCase() && 
            Number(p.annee) === currentYear
     );
     
-    return payment ? payment : null;
+    if (workerPaymentsThisMonth.length === 0) return null;
+    
+    const totalPaid = workerPaymentsThisMonth.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+    
+    if (totalPaid >= Number(montantMensuel)) {
+      return workerPaymentsThisMonth[0]; // Return the first payment object as a truthy status
+    }
+    
+    return null;
   };
 
   const getLastPaymentDate = (ouvrierId) => {
@@ -667,7 +675,9 @@ export default function Loyers() {
                   <th className="py-4 px-6">Ouvrier Logé</th>
                   <th className="py-4 px-6">Chantier / Site</th>
                   <th className="py-4 px-6">Qualification</th>
-                  <th className="py-4 px-6 text-right">Montant Mensuel</th>
+                  <th className="py-4 px-6 text-right">Loyer Total</th>
+                  <th className="py-4 px-6 text-center">Tranches</th>
+                  <th className="py-4 px-6 text-right">Montant/Semaine</th>
                   <th className="py-4 px-6">Début Hébergement</th>
                   <th className="py-4 px-6">Statut Ce Mois</th>
                   <th className="py-4 px-6">Dernier Paiement</th>
@@ -679,6 +689,9 @@ export default function Loyers() {
                   const ouvrier = ouvriers.find(o => o.id === loyer.ouvrier_id);
                   const payment = isPaidThisMonth(loyer.ouvrier_id, loyer.montant_mensuel);
                   const lastPaymentDate = getLastPaymentDate(loyer.ouvrier_id);
+                  
+                  const nombreTranches = Number(loyer.nombre_tranches) || 1;
+                  const montantParSemaine = Math.ceil((Number(loyer.montant_mensuel) || 0) / nombreTranches);
                   
                   return (
                     <tr key={loyer.id} className="hover:bg-blue-50/40 transition-colors">
@@ -695,6 +708,12 @@ export default function Loyers() {
                       </td>
                       <td className="py-4 px-6 text-right font-mono font-black text-blue-900 text-sm">
                         {formatCurrency(loyer.montant_mensuel)}
+                      </td>
+                      <td className="py-4 px-6 text-center font-bold text-gray-600">
+                        {nombreTranches}
+                      </td>
+                      <td className="py-4 px-6 text-right font-mono font-bold text-indigo-600 text-sm">
+                        {formatCurrency(montantParSemaine)}
                       </td>
                       <td className="py-4 px-6 font-bold capitalize text-gray-700">
                         {loyer.type === 'long_terme' ? (
@@ -833,15 +852,32 @@ export default function Loyers() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Montant mensuel (FCFA) *</label>
-                <input
-                  type="number"
-                  className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-blue-600 focus:bg-white focus:border-blue-500"
-                  value={formData.montant_mensuel}
-                  onChange={(e) => setFormData({ ...formData, montant_mensuel: e.target.value })}
-                  required
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Montant mensuel (FCFA) *</label>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-extrabold text-blue-600 focus:bg-white focus:border-blue-500"
+                    value={formData.montant_mensuel}
+                    onChange={(e) => setFormData({ ...formData, montant_mensuel: e.target.value })}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Nombre de tranches *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="5"
+                    className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:border-blue-500"
+                    value={formData.nombre_tranches || 1}
+                    onChange={(e) => setFormData({ ...formData, nombre_tranches: e.target.value })}
+                    required
+                  />
+                  <p className="text-[10px] text-gray-500 mt-1">
+                    Ex: Saisissez 3 pour diviser sur 3 semaines
+                  </p>
+                </div>
               </div>
 
               <div>

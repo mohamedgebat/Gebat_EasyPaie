@@ -1,0 +1,1 @@
+const { pool } = require('./server/database.js'); async function run() { try { await pool.query('ALTER TABLE loyers ADD COLUMN nombre_tranches INT DEFAULT 1;'); console.log('Done!'); } catch(e) { if(e.code === 'ER_DUP_FIELDNAME') console.log('Column already exists!'); else console.error(e); } finally { pool.end(); } } run();

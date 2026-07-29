@@ -345,6 +345,19 @@ app.post('/api/paiements-loyer', async (req, res) => {
   }
 });
 
+app.get('/api/migrate-loyers', async (req, res) => {
+  try {
+    await db.pool.query('ALTER TABLE loyers ADD COLUMN nombre_tranches INT DEFAULT 1;');
+    res.json({ success: true, message: "Migration OK" });
+  } catch (err) {
+    if (err.code === 'ER_DUP_FIELDNAME') {
+      res.json({ success: true, message: "Already migrated" });
+    } else {
+      res.status(500).json({ error: err.message });
+    }
+  }
+});
+
 // Paies routes
 app.get('/api/paies', async (req, res) => {
   try {

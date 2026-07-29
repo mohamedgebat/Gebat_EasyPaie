@@ -1,0 +1,1 @@
+import mysql from 'mysql2/promise'; async function run() { try { const conn = await mysql.createConnection('mysql://root:kFidAObfUevxWwWkUuOebwKkXIDiCrrW@junction.proxy.rlwy.net:47565/railway'); const [res] = await conn.query('SELECT nombre_tranches FROM loyers LIMIT 1;'); console.log(res); await conn.end(); } catch(e) { console.log(e); } } run();

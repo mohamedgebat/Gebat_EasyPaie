@@ -1,0 +1,1 @@
+import mysql from 'mysql2/promise'; async function run() { const conn = await mysql.createConnection('mysql://root:kFidAObfUevxWwWkUuOebwKkXIDiCrrW@junction.proxy.rlwy.net:47565/railway'); try { await conn.query('ALTER TABLE loyers ADD COLUMN nombre_tranches INT DEFAULT 1;'); console.log('Done!'); } catch(e){ console.error(e); } finally { await conn.end(); } } run();
