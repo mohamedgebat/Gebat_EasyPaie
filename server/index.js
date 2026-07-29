@@ -289,8 +289,8 @@ app.get('/api/loyers/ouvrier/:ouvrierId', async (req, res) => {
 
 app.post('/api/loyers', async (req, res) => {
   try {
-    const { ouvrier_id, site, qualification, montant_mensuel, mois, annee } = req.body;
-    const result = await db.addLoyer({ ouvrier_id: parseInt(ouvrier_id), site, qualification, montant_mensuel, mois, annee: parseInt(annee) });
+    const { ouvrier_id, site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
+    const result = await db.addLoyer({ ouvrier_id: parseInt(ouvrier_id), site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -299,8 +299,8 @@ app.post('/api/loyers', async (req, res) => {
 
 app.put('/api/loyers/:id', async (req, res) => {
   try {
-    const { site, qualification, montant_mensuel, mois, annee } = req.body;
-    await db.updateLoyer(parseInt(req.params.id), { site, qualification, montant_mensuel, mois, annee: parseInt(annee) });
+    const { site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
+    await db.updateLoyer(parseInt(req.params.id), { site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
     res.json({ id: req.params.id, ...req.body });
   } catch (err) {
     res.status(500).json({ error: err.message });
