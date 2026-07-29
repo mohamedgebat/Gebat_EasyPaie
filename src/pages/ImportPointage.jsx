@@ -561,21 +561,27 @@ export default function ImportPointage() {
     return Array.from(workerMap.values()).filter(row => !isZeroAmount(row['NET A PAYER']));
   };
 
+  const normalizeName = (name) => {
+    if (!name) return '';
+    return String(name)
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") // Enlever les accents
+      .replace(/[^a-zA-Z0-9]/g, '') // Ne garder que les lettres et chiffres (enlève espaces, tirets, etc.)
+      .toLowerCase();
+  };
+
   const matchWorkerRobust = (workers, nameStr) => {
     if (!nameStr) return null;
-    const target = String(nameStr).trim().toLowerCase();
+    const targetNorm = normalizeName(nameStr);
+    
     return workers.find((w) => {
-      const nomOnly = String(w.nom || '').trim().toLowerCase();
-      const full1 = `${w.nom || ''} ${w.prenom || ''}`.trim().toLowerCase();
-      const full2 = `${w.prenom || ''} ${w.nom || ''}`.trim().toLowerCase();
+      const nomNorm = normalizeName(w.nom);
+      const prenomNorm = normalizeName(w.prenom);
       
-      if (nomOnly === target || full1 === target || full2 === target) return true;
+      const full1Norm = normalizeName(`${w.nom || ''} ${w.prenom || ''}`);
+      const full2Norm = normalizeName(`${w.prenom || ''} ${w.nom || ''}`);
       
-      // If the target is exactly the same as full1 but with spaces removed or reversed
-      if (target.replace(/\s+/g, '') === full1.replace(/\s+/g, '')) return true;
-      
-      // Don't do simple includes() because "KONE" would match "KONE DAOUDA" and false-positive other Kones.
-      // Instead, we only match if both parts of the name match exactly (e.g. they typed "KONE DAOUDA" instead of "DAOUDA KONE")
+      if (nomNorm === targetNorm || full1Norm === targetNorm || full2Norm === targetNorm) return true;
       return false;
     });
   };
