@@ -331,26 +331,37 @@ export default function CalculPaie() {
       return { montant: Number(existingPeriodPonction.montant) || 0, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid, epiLimit };
     }
 
-    // 2. Sinon, vérifier si une ponction EPI est programmée pour cette semaine spécifique
-    const activeProgram = epiProgrammes.find(e => {
-      if (Number(e.ouvrier_id) !== Number(ouvrierId)) return false;
-      return String(e.semaine).trim().toUpperCase() === String(semaine).trim().toUpperCase();
-    });
-
-    if (activeProgram) {
-      return { 
-        montant: Number(activeProgram.montant) || 0, 
-        has_existing: false, 
-        existing_id: null, 
-        totalPaid, 
-        epiLimit, 
-        fromProgram: true,
-        programId: activeProgram.id 
-      };
+    if (totalPaid >= epiLimit) {
+      return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
     }
 
-    // 3. Aucune ponction
-    return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
+    // Si on a déjà commencé à payer, on déduit automatiquement le reste
+    if (totalPaid > 0) {
+      return { montant: epiLimit - totalPaid, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
+    }
+
+    // Si c'est la 1ère fois (totalPaid === 0)
+    const workerProgram = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(ouvrierId));
+
+    if (workerProgram) {
+      // Il est programmé. On déduit uniquement si c'est la bonne semaine
+      if (String(workerProgram.semaine).trim().toUpperCase() === String(semaine).trim().toUpperCase()) {
+        return { 
+          montant: Number(workerProgram.montant) || 5000, 
+          has_existing: false, 
+          existing_id: null, 
+          totalPaid, 
+          epiLimit, 
+          fromProgram: true,
+          programId: workerProgram.id 
+        };
+      }
+      // Sinon on ne déduit rien en attendant sa semaine
+      return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
+    }
+
+    // Pas programmé du tout. Déduction automatique dès son arrivée.
+    return { montant: 5000, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
   };
 
   const handleCalcul = () => {

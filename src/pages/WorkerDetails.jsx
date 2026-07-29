@@ -1284,14 +1284,17 @@ export default function WorkerDetails() {
                 </div>
                 <form onSubmit={handleAddEpiProgramme} className="flex flex-wrap gap-2 w-full md:w-auto items-end justify-end">
                   <div className="flex gap-2 w-full md:w-auto">
-                    <input
-                      type="text"
-                      placeholder="Semaine (ex: SEMAINE 4)"
+                    <select
                       className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-60 disabled:bg-gray-100 disabled:text-gray-400"
                       value={newProgramme.semaine}
                       onChange={e => setNewProgramme({...newProgramme, semaine: e.target.value})}
                       disabled={epiProgrammes.length > 0}
-                    />
+                    >
+                      <option value="">Sélectionnez la semaine</option>
+                      {Array.from({length: 52}, (_, i) => (
+                        <option key={i+1} value={`SEMAINE ${i+1}`}>SEMAINE {i+1}</option>
+                      ))}
+                    </select>
                     <input
                       type="number"
                       placeholder="Montant (ex: 2000)"
