@@ -370,8 +370,10 @@ export default function CalculPaie() {
       return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
     }
 
-    // Pas programmé du tout. Déduction automatique dès son arrivée.
-    return { montant: 5000, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
+    // Pas programmé du tout et jamais ponctionné (totalPaid === 0).
+    // Désormais, la déduction n'est PLUS automatique la première fois.
+    // Elle le deviendra uniquement après une première saisie manuelle (qui rendra totalPaid > 0).
+    return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
   };
 
   const handleCalcul = () => {
