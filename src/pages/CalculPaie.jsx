@@ -481,15 +481,6 @@ export default function CalculPaie() {
         };
       } else {
         calcPonctionResult = fullCalc;
-        if (calcPonctionResult.montant === 0 && existingPaie && Number(existingPaie.ponction) > 0) {
-          calcPonctionResult = { 
-            montant: Number(existingPaie.ponction), 
-            has_existing: Boolean(existingPaie.has_existing_ponction), 
-            existing_id: existingPaie.existing_ponction_id || null,
-            totalPaid: fullCalc.totalPaid || Number(existingPaie.total_cotisations_epi) || 0,
-            epiLimit: fullCalc.epiLimit || Number(existingPaie.epi_limit) || 0
-          };
-        }
       }
       const ponctionAmount = calcPonctionResult.montant;
       const loyerAmount = isPaidLocked && existingPaie.loyer !== undefined ? Number(existingPaie.loyer) : calculateLoyer(ouvrier.id);
