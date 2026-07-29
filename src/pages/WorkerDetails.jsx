@@ -12,6 +12,7 @@ import * as XLSX from 'xlsx-js-style';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import gebatLogo from '../assets/logo_gebat.png';
+import { startOfWeek, endOfWeek, addWeeks, format, getISOWeek, getISOWeekYear } from 'date-fns';
 
 export default function WorkerDetails() {
   const { id } = useParams();
@@ -1285,15 +1286,34 @@ export default function WorkerDetails() {
                 <form onSubmit={handleAddEpiProgramme} className="flex flex-wrap gap-2 w-full md:w-auto items-end justify-end">
                   <div className="flex gap-2 w-full md:w-auto">
                     <select
-                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-60 disabled:bg-gray-100 disabled:text-gray-400"
+                      className="px-3 py-2 border border-gray-200 rounded-lg text-sm flex-1 md:w-64 disabled:bg-gray-100 disabled:text-gray-400"
                       value={newProgramme.semaine}
                       onChange={e => setNewProgramme({...newProgramme, semaine: e.target.value})}
                       disabled={epiProgrammes.length > 0}
                     >
                       <option value="">Sélectionnez la semaine</option>
-                      {Array.from({length: 52}, (_, i) => (
-                        <option key={i+1} value={`SEMAINE ${i+1}`}>SEMAINE {i+1}</option>
-                      ))}
+                      {(() => {
+                        try {
+                          const options = [];
+                          const today = new Date();
+                          for (let i = -4; i < 48; i++) {
+                            const targetDate = addWeeks(today, i);
+                            const weekNumber = getISOWeek(targetDate);
+                            const year = getISOWeekYear(targetDate);
+                            const weekVal = `${year}-S${String(weekNumber).padStart(2, '0')}`;
+                            const start = startOfWeek(targetDate, { weekStartsOn: 1 });
+                            const end = endOfWeek(targetDate, { weekStartsOn: 1 });
+                            const label = `${weekVal} (${format(start, 'yyyy/MM/dd')} - ${format(end, 'yyyy/MM/dd')})`;
+                            options.push(<option key={weekVal} value={weekVal}>{label}</option>);
+                          }
+                          return options;
+                        } catch (e) {
+                          // Fallback if formatting fails
+                          return Array.from({length: 52}, (_, i) => (
+                            <option key={i+1} value={`SEMAINE ${i+1}`}>SEMAINE {i+1}</option>
+                          ));
+                        }
+                      })()}
                     </select>
                     <input
                       type="number"
