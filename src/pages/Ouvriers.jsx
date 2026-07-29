@@ -169,15 +169,20 @@ export default function Ouvriers() {
     doc.setTextColor(0, 0, 0);
 
     const rows = filteredOuvriers.map((o) => {
-      let epiStatusStr = "Aucun";
+      let epiStatusStr = "Automatique";
       if (o.statut === 'parti' && o.epi_settled) {
         epiStatusStr = "Remboursé";
       } else {
-        const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(o.id));
-        if (prog) {
-          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
-          const total = Number(prog.semaines_totales);
-          epiStatusStr = ponctionsReliees >= total ? "Terminé" : `${ponctionsReliees}/${total}`;
+        const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(o.id) && !p.motif?.includes('Complément') && !p.motif?.includes('non retournés') && !p.motif?.includes('perdus'));
+        const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+        
+        if (totalPaid > 0) {
+          epiStatusStr = `En cours (${totalPaid} F)`;
+        } else {
+          const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(o.id));
+          if (prog) {
+            epiStatusStr = `Prog: ${prog.semaine}`;
+          }
         }
       }
 
@@ -684,22 +689,27 @@ export default function Ouvriers() {
                               </span>
                             );
                           }
-                          const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(ouvrier.id));
-                          if (!prog) return <span className="text-xs text-gray-300 font-medium italic">Aucun</span>;
-                          const ponctionsReliees = ponctions.filter(p => p.motif?.includes(`[PROG EPI N°${prog.id}]`)).length;
-                          const total = Number(prog.semaines_totales);
-                          if (ponctionsReliees >= total) {
+                          const workerPonctions = ponctions.filter(p => Number(p.ouvrier_id) === Number(ouvrier.id) && !p.motif?.includes('Complément caution') && !p.motif?.includes('non retournés') && !p.motif?.includes('perdus'));
+                          const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
+
+                          if (totalPaid > 0) {
                             return (
-                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap">
-                                <CheckCircle2 size={12} /> Terminé
+                              <span className="inline-flex items-center gap-1 bg-sky-50 text-sky-600 border border-sky-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap" title={`Déjà payé: ${totalPaid} F`}>
+                                <RefreshCw size={10} className="animate-spin-slow" /> En cours ({totalPaid} F)
                               </span>
                             );
                           }
-                          return (
-                            <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap">
-                              <RefreshCw size={10} className="animate-spin-slow" /> {ponctionsReliees}/{total}
-                            </span>
-                          );
+                          
+                          const prog = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(ouvrier.id));
+                          if (prog) {
+                            return (
+                              <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-600 border border-amber-100 font-bold px-2.5 py-1 rounded-md text-[10px] whitespace-nowrap" title={`Programmé pour: ${prog.semaine}`}>
+                                <Calendar size={12} /> {prog.semaine.split(' ')[0]} {/* Just show year-Sxx to fit */}
+                              </span>
+                            );
+                          }
+                          
+                          return <span className="text-xs text-gray-400 font-medium italic">Automatique</span>;
                         })()}
                       </td>
 
