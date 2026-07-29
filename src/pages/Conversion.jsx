@@ -67,7 +67,7 @@ export default function Conversion() {
   // Settings & Legends
   const [dailyWage, setDailyWage] = useState(7500);
   const [dailyHours, setDailyHours] = useState(8);
-  const [otThresholdHours, setOtThresholdHours] = useState(2); // 1h HS considered when exceeding 2 hours
+  const [otThresholdHours, setOtThresholdHours] = useState(1); // 1h HS considered when exceeding 1 hour
   const [siteName, setSiteName] = useState('SONGON');
   const [dateRangeStr, setDateRangeStr] = useState('03 JUILLET AU 09 JUILLET 2026');
   const [otCalculationMode, setOtCalculationMode] = useState('rule_2h'); // 'rule_2h' | 'proportional_15'
