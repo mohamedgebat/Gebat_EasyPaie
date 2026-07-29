@@ -1301,8 +1301,9 @@ export default function WorkerDetails() {
                             const weekNumber = getISOWeek(targetDate);
                             const year = getISOWeekYear(targetDate);
                             const weekVal = `${year}-S${String(weekNumber).padStart(2, '0')}`;
-                            const start = startOfWeek(targetDate, { weekStartsOn: 1 });
-                            const end = endOfWeek(targetDate, { weekStartsOn: 1 });
+                            // 5 = Friday
+                            const start = startOfWeek(targetDate, { weekStartsOn: 5 });
+                            const end = endOfWeek(targetDate, { weekStartsOn: 5 });
                             const label = `${weekVal} (${format(start, 'yyyy/MM/dd')} - ${format(end, 'yyyy/MM/dd')})`;
                             options.push(<option key={weekVal} value={weekVal}>{label}</option>);
                           }
