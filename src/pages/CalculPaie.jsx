@@ -338,7 +338,21 @@ export default function CalculPaie() {
     });
 
     if (existingPeriodPonction && existingPeriodPonction.montant !== undefined) {
-      return { montant: Number(existingPeriodPonction.montant) || 0, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid, epiLimit };
+      const montantExistant = Number(existingPeriodPonction.montant) || 0;
+      const totalPaidBefore = totalPaid - montantExistant;
+      
+      // Auto-correction : Si c'est une ponction générée automatiquement et que l'ouvrier avait DÉJÀ soldé avant cette période
+      if (totalPaidBefore >= epiLimit && existingPeriodPonction.motif === 'Retenue hebdomadaire EPI') {
+        return { montant: 0, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid: totalPaidBefore, epiLimit };
+      }
+      
+      // Auto-correction 2 : S'il devait payer moins que ce qui a été prélevé automatiquement
+      if (totalPaidBefore < epiLimit && (totalPaidBefore + montantExistant) > epiLimit && existingPeriodPonction.motif === 'Retenue hebdomadaire EPI') {
+        const montantCorrige = epiLimit - totalPaidBefore;
+        return { montant: montantCorrige, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid: totalPaidBefore + montantCorrige, epiLimit };
+      }
+
+      return { montant: montantExistant, has_existing: true, existing_id: existingPeriodPonction.id, totalPaid, epiLimit };
     }
 
     if (totalPaid >= epiLimit) {
