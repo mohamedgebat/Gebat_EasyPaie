@@ -1213,6 +1213,7 @@ export default function ImportPointage() {
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-gray-50 text-gray-500 font-extrabold uppercase tracking-wider border-b border-gray-200">
+                    <th className="py-3 px-4 text-center font-extrabold">#</th>
                     <th className="py-3 px-4 font-extrabold">Ouvrier</th>
                     <th className="py-3 px-4 font-extrabold">Qualification</th>
                     <th className="py-3 px-4 font-extrabold text-center text-teal-700">Jours</th>
