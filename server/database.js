@@ -1,6 +1,5 @@
 import mysql from 'mysql2/promise';
 
-// Pool MySQL avec paramètres par défaut (localhost:3306, user: root, password: '', db: gebat_easypaie)
 const pool = mysql.createPool({
   host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
   user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
@@ -9,7 +8,9 @@ const pool = mysql.createPool({
   port: Number(process.env.DB_PORT) || Number(process.env.MYSQLPORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000
 });
 
 function getCurrentTimestamp() {
