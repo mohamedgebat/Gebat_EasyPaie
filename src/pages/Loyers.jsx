@@ -29,6 +29,7 @@ export default function Loyers() {
     site: '',
     qualification: '',
     montant_mensuel: '',
+    nombre_tranches: 1,
     type: 'long_terme',
     mois: new Date().toLocaleString('fr-FR', { month: 'long' }),
     annee: new Date().getFullYear(),
@@ -84,6 +85,7 @@ export default function Loyers() {
         site: '',
         qualification: '',
         montant_mensuel: '',
+        nombre_tranches: 1,
         type: 'long_terme',
         mois: new Date().toLocaleString('fr-FR', { month: 'long' }),
         annee: new Date().getFullYear(),
@@ -870,7 +872,7 @@ export default function Loyers() {
                     min="1"
                     max="5"
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium focus:bg-white focus:border-blue-500"
-                    value={formData.nombre_tranches || 1}
+                    value={formData.nombre_tranches !== undefined ? formData.nombre_tranches : 1}
                     onChange={(e) => setFormData({ ...formData, nombre_tranches: e.target.value })}
                     required
                   />
