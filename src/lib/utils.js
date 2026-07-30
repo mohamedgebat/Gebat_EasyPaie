@@ -258,7 +258,14 @@ export function extractWorkbookMetadata(workbook, filename = '', XLSX = null) {
   };
 
   const frRegex = /(?:DU\s+|DE\s+)?(\d{1,2})\s+(?:([a-zûéèäöü]+)\s+)?(?:(\d{4})\s+)?(?:AU|A|au|à|-|_)\s*(\d{1,2})\s+([a-zûéèäöü]+)\s+(\d{4})/i;
-  const frMatch = combined.match(frRegex);
+  
+  // EXTRACTION STRICTE DU NOM DU FICHIER EN PRIORITÉ
+  let filenameMatch = null;
+  if (filename) {
+    filenameMatch = filename.match(frRegex);
+  }
+  
+  const frMatch = filenameMatch || combined.match(frRegex);
   if (frMatch) {
     const dayStart = frMatch[1].padStart(2, '0');
     const monthStartStr = frMatch[2] || frMatch[5];
