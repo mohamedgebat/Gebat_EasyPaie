@@ -950,6 +950,9 @@ export default function ImportPointage() {
         }
       }
 
+      setImporting(false);
+      alert('✅ Importation et synchronisation avec la base de données terminées avec succès.');
+      
       // Sauvegarder dans localStorage pour garantir la détection immédiate sur Calcul de la Paie
       try {
         localStorage.setItem('gebat_last_import_meta', JSON.stringify({
@@ -1418,17 +1421,6 @@ export default function ImportPointage() {
                 </div>
               )}
             </div>
-            
-            {/* DEBUG BLOCK - SO WE CAN SEE WHAT HAPPENED */}
-            {previewData.length > 0 && (
-              <div className="mt-4 p-4 bg-red-50 text-red-800 rounded-lg text-xs font-mono overflow-x-auto">
-                <strong>DEBUG INFO:</strong><br/>
-                Raw Headers Found: {JSON.stringify(previewData[0]._rawHeaders || 'None')}<br/>
-                Indices Mapped: {JSON.stringify(previewData[0]._mappedIndices || 'None')}<br/>
-                Raw Row Data: {JSON.stringify(previewData[0]._rawRow || 'None')}<br/>
-                Parsed Net: {previewData[0]['NET A PAYER']} | Parsed Total: {previewData[0]['TOTAL']} | Parsed EPI: {previewData[0]['RETENUE EPI']}
-              </div>
-            )}
             
           </div>
 
