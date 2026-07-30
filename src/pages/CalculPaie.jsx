@@ -502,6 +502,23 @@ export default function CalculPaie() {
       let epiRemboursement = 0;
       let epiDeduction = 0;
       let epiDepartureOption = '';
+      let isDepartureWeek = false;
+      if (ouvrier.statut === 'parti' && ouvrier.date_depart) {
+        const dDate = String(ouvrier.date_depart).split('T')[0];
+        if (dateDebut && dateFin) {
+           isDepartureWeek = dDate >= String(dateDebut).split('T')[0] && dDate <= String(dateFin).split('T')[0];
+        } else if (semaine) {
+           const d = new Date(dDate);
+           d.setHours(0,0,0,0);
+           d.setDate(d.getDate() + 3 - (d.getDay() + 6) % 7);
+           const week1 = new Date(d.getFullYear(), 0, 4);
+           const w = 1 + Math.round(((d - week1) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+           const depSem = `${d.getFullYear()}-W${w.toString().padStart(2, '0')}`;
+           isDepartureWeek = String(semaine).toUpperCase() === depSem;
+        } else {
+           isDepartureWeek = true; // default if no filter
+        }
+      }
       
       if (isPaidLocked) {
         epiRemboursement = Number(existingPaie?.epi_remboursement || 0);
@@ -511,7 +528,7 @@ export default function CalculPaie() {
           epiRemboursement = 0;
           epiDeduction = 0;
         }
-      } else if (ouvrier.statut === 'parti' && !ouvrier.epi_settled) {
+      } else if (ouvrier.statut === 'parti' && !ouvrier.epi_settled && isDepartureWeek) {
         epiDepartureOption = ouvrier.epi_departure_option || existingPaie?.epi_departure_option || '';
         if (epiDepartureOption === 'epi_non_retourne') {
           epiRemboursement = 0;
