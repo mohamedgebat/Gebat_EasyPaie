@@ -558,7 +558,11 @@ export default function ImportPointage() {
       });
     });
     
-    return Array.from(workerMap.values()).filter(row => !isZeroAmount(row['NET A PAYER']));
+    return Array.from(workerMap.values()).filter(row => {
+      const netVal = row['NET A PAYER'] || row['Net à payer'] || row['Net a payer'] || row.salaire;
+      const jours = row['JOURS_TRAVAILLES'] || row['Jours'];
+      return !isZeroAmount(netVal) || Number(jours) > 0;
+    });
   };
 
   const normalizeName = (name) => {
@@ -628,16 +632,17 @@ export default function ImportPointage() {
       // 1. Exact robust match
       if (nomNorm === targetNorm || full1Norm === targetNorm || full2Norm === targetNorm) return true;
       
-      // 2. Small typos on the whole string (max 2 character difference, but string must be at least 5 chars)
-      if (targetNorm.length > 5 && full1Norm.length > 5) {
-        if (levenshteinDistance(targetNorm, full1Norm) <= 2) return true;
-        if (levenshteinDistance(targetNorm, full2Norm) <= 2) return true;
-        if (levenshteinDistance(targetNorm, nomNorm) <= 2) return true;
+      // 2. Small typos on the whole string
+      if (targetNorm.length >= 8 && full1Norm.length >= 8) {
+        const threshold = targetNorm.length > 12 ? 2 : 1;
+        if (levenshteinDistance(targetNorm, full1Norm) <= threshold) return true;
+        if (levenshteinDistance(targetNorm, full2Norm) <= threshold) return true;
+        if (levenshteinDistance(targetNorm, nomNorm) <= threshold) return true;
       }
 
-      // 3. Missing words / subsets (e.g. "KACOU YAO FRANCK" vs "KACOU YAO")
+      // 3. Word subset (e.g. "KOUASSI JEAN" matches "KOUASSI JEAN BAPTISTE")
       const dbWords = full1Base.replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(w => w);
-      if (dbWords.length > 1 && targetWords.length > 1) {
+      if (dbWords.length > 2 && targetWords.length > 2) {
         if (areWordsSubset(targetWords, dbWords)) return true;
       }
       
@@ -655,7 +660,8 @@ export default function ImportPointage() {
 
       data.forEach((row) => {
         const netVal = row['NET A PAYER'] || row['Net à payer'] || row['Net a payer'] || row.salaire;
-        if (isZeroAmount(netVal)) return;
+        const jours = row['JOURS_TRAVAILLES'] || row['Jours'];
+        if (isZeroAmount(netVal) && !(Number(jours) > 0)) return;
 
         const workerName = row['NOM ET PRENOMS'] || row.Nom || row.nom || row.NOM;
         const worker = matchWorkerRobust(workers, workerName);
@@ -809,6 +815,33 @@ export default function ImportPointage() {
         if (worker && worker.id) {
           importedWorkerIds.push(worker.id);
 
+          let needsUpdate = false;
+          let updatedWorker = { ...worker };
+
+          const importedQualif = row.Qualification || row.qualification;
+          if (importedQualif && (!worker.qualification || worker.qualification.toUpperCase() !== importedQualif.toUpperCase())) {
+            updatedWorker.qualification = importedQualif;
+            needsUpdate = true;
+          }
+
+          if (workerName && worker.nom !== workerName) {
+            updatedWorker.nom = workerName;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            try {
+              await apiFetch(`/api/ouvriers/${worker.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedWorker)
+              });
+              Object.assign(worker, updatedWorker);
+            } catch (e) {
+              console.error("Erreur lors de la mise à jour de l'ouvrier", e);
+            }
+          }
+
           const parsedTotalDays = Number(row['JOURS_TRAVAILLES']) || 0;
           let baseHebdo = 45000;
           if (Number(worker.salaire_base) > 0) {
@@ -822,9 +855,15 @@ export default function ImportPointage() {
           const dailyRate = baseHebdo / 6;
           const calculatedBrut = parsedTotalDays > 0 ? (parsedTotalDays * dailyRate) : 0;
           
-          const rawTotal = Number(row['TOTAL']) || Number(row['SALAIRE BRUT']) || Number(row['Salaire Brut']) || Number(row['NET A PAYER']) || Number(row['Net à payer']) || Number(row['Net a payer']) || Number(row.salaire) || 0;
+          const parseAmount = (val) => {
+            if (!val) return 0;
+            const num = Number(String(val).replace(/[^0-9.-]+/g, ""));
+            return isNaN(num) ? 0 : num;
+          };
           
-          const finalBrut = calculatedBrut > 0 ? calculatedBrut : rawTotal;
+          const rawTotal = parseAmount(row['TOTAL']) || parseAmount(row['SALAIRE BRUT']) || parseAmount(row['Salaire Brut']) || parseAmount(row['NET A PAYER']) || parseAmount(row['Net à payer']) || parseAmount(row['Net a payer']) || parseAmount(row.salaire) || 0;
+          
+          const finalBrut = rawTotal > 0 ? rawTotal : calculatedBrut;
 
           const semaineStr = extractedDates.semaine || '';
           const existingPointage = dbPointages.find(p => p.ouvrier_id === worker.id && p.semaine === semaineStr);
