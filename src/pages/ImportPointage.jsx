@@ -535,17 +535,19 @@ export default function ImportPointage() {
       let totalRaw = parseRawAmount(finalTotalIdx !== -1 ? row[finalTotalIdx] : 0);
       let epiRaw = parseRawAmount(finalEpiIdx !== -1 ? row[finalEpiIdx] : 0);
       
-      if (isLegacySheet) {
-        // En cas de sheet sans entêtes reconnus, souvent 'totalRaw' capture les 'Jours' par erreur.
-        // Or, mathématiquement : Brut Excel = Net + EPI
+      // If the 'TOTAL' column actually captured the days (e.g., value is between 0.5 and 35)
+      // and we have a valid salary, it means 'TOTAL' was 'Total Jours', not 'Total Brut'
+      let daysFromTotal = 0;
+      if (totalRaw > 0 && totalRaw <= 35 && netAPayerRaw >= 1000) {
+        daysFromTotal = totalRaw;
+        totalRaw = 0;
+      }
+      
+      // Force Brut Excel to be mathematically correct based on Net Excel (User explicitly requested this)
+      if (netAPayerRaw > 0) {
         totalRaw = netAPayerRaw + epiRaw;
-      } else {
-        // If one of them is empty or 0, fallback to the other
-        if (totalRaw === 0 && netAPayerRaw > 0) {
-          totalRaw = netAPayerRaw + epiRaw;
-        } else if (netAPayerRaw === 0 && totalRaw > 0) {
-          netAPayerRaw = totalRaw - epiRaw;
-        }
+      } else if (totalRaw > 0) {
+        netAPayerRaw = totalRaw - epiRaw;
       }
 
       if (netAPayerRaw === 0 && totalRaw === 0) {
@@ -554,7 +556,9 @@ export default function ImportPointage() {
       
       let totalDays = 0;
       if (finalJoursIdx !== -1 && row[finalJoursIdx]) {
-         totalDays = Number(row[finalJoursIdx]) || 0;
+         totalDays = Number(String(row[finalJoursIdx]).replace(/,/g, '.')) || 0;
+      } else if (daysFromTotal > 0) {
+         totalDays = daysFromTotal;
       } else if (isLegacySheet) {
         for (let j = 2; j <= row.length - 4; j++) {
           const val = row[j];
