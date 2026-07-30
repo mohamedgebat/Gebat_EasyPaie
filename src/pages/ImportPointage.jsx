@@ -477,7 +477,11 @@ export default function ImportPointage() {
 
     // Original Format
     const headerRowIndex = rawData.findIndex(row => 
-      row && row.some(cell => cell && cell.toString().toUpperCase().includes('NOM ET PRENOMS'))
+      row && row.some(cell => {
+        if (!cell) return false;
+        const str = cell.toString().toUpperCase();
+        return str.includes('NOM') || str.includes('PRENOM') || str.includes('OUVRIER');
+      })
     );
     
     if (headerRowIndex === -1) return [];
@@ -488,13 +492,13 @@ export default function ImportPointage() {
     headerRow.forEach((cell, idx) => {
       if (!cell) return;
       const str = String(cell).toUpperCase();
-      if (str.includes('NOM ET PRENOM')) nameIdx = idx;
+      if (str.includes('NOM') || str.includes('PRENOM') || str.includes('OUVRIER')) nameIdx = idx;
       else if (str.includes('QUALIF')) qualIdx = idx;
-      else if (str === 'JOURS' || str === 'JOURS TRAVAILLES') joursIdx = idx;
-      else if (str === 'TOTAL') totalIdx = idx;
-      else if (str === 'MONTANT') montantIdx = idx;
-      else if (str.includes('EPI')) epiIdx = idx;
-      else if (str.includes('NET A PAYER') || str.includes('NET À PAYER')) netIdx = idx;
+      else if (str.includes('JOUR')) joursIdx = idx;
+      else if (str.includes('TOTAL') || str.includes('BRUT')) totalIdx = idx;
+      else if (str.includes('MONTANT')) montantIdx = idx;
+      else if (str.includes('EPI') || str.includes('RETENUE')) epiIdx = idx;
+      else if (str.includes('NET') || str.includes('PAYER') || str.includes('PAYE')) netIdx = idx;
     });
 
     // Extract qualification from sheet name or title
