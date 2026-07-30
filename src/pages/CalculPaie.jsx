@@ -666,7 +666,10 @@ export default function CalculPaie() {
     const totalPaid = workerPonctions.reduce((sum, p) => sum + (Number(p.montant) || 0), 0);
     
     if (totalPaid < epiLimit) {
-      return totalPaid === 0 ? 5000 : (epiLimit - totalPaid);
+      // Si aucune déduction n'a jamais été faite (totalPaid === 0), on ne fait RIEN automatiquement (0).
+      // L'utilisateur doit le faire manuellement la première fois.
+      // Ensuite, le système déduira automatiquement le RESTE (epiLimit - totalPaid).
+      return totalPaid === 0 ? 0 : (epiLimit - totalPaid);
     }
     return 0;
   };
