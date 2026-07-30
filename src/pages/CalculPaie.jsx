@@ -574,7 +574,7 @@ export default function CalculPaie() {
         }
       }
       
-      const netAPayer = isPaidLocked && existingPaie.net_a_payer !== undefined 
+      const netAPayer = (isPaidLocked && (!currentWeekPointage || currentWeekPointage.salaire_brut === undefined) && existingPaie.net_a_payer !== undefined)
         ? Number(existingPaie.net_a_payer) 
         : (Number(salaireBrut) || 0) - (Number(ponctionAmount) || 0) - (Number(loyerAmount) || 0) + (Number(epiRemboursement) || 0) - (Number(epiDeduction) || 0);
 
