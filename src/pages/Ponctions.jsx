@@ -1822,9 +1822,9 @@ function PonctionsContent() {
                           Date de départ : {selectedWorkerData?.date_depart ? formatDate(selectedWorkerData.date_depart) : 'Non spécifiée'}
                         </p>
                         <p className="text-xs font-bold text-indigo-700 mt-0.5">
-                          Caution : {
+                          Montant remboursé : {
                             selectedWorkerData?.epi_remboursement > 0 
-                            ? `+ ${formatCurrency(selectedWorkerData.epi_remboursement)} (Remboursement)` 
+                            ? `${formatCurrency(selectedWorkerData.epi_remboursement)}` 
                             : (selectedWorkerData?.epi_deduction > 0 ? `- ${formatCurrency(selectedWorkerData.epi_deduction)} (Complément retenu)` : '0 F CFA')
                           }
                         </p>
