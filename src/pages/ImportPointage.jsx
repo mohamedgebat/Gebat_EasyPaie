@@ -497,8 +497,8 @@ export default function ImportPointage() {
       else if (str.includes('JOUR')) joursIdx = idx;
       else if (str.includes('TOTAL') || str.includes('BRUT')) totalIdx = idx;
       else if (str.includes('MONTANT')) montantIdx = idx;
-      else if (str.includes('EPI') || str.includes('RETENUE')) epiIdx = idx;
-      else if (str.includes('NET') || str.includes('PAYER') || str.includes('PAYE')) netIdx = idx;
+      else if (str.includes('EPI') || str.includes('RETENUE') || str.includes('AVANCE')) epiIdx = idx;
+      else if (str.includes('NET') || str.includes('PAYER') || str.includes('PAYE') || str.includes('SALAIRE')) netIdx = idx;
     });
 
     // Extract qualification from sheet name or title
@@ -525,14 +525,18 @@ export default function ImportPointage() {
       const finalEpiIdx = epiIdx !== -1 ? epiIdx : (isLegacySheet ? row.length - 2 : -1);
       const finalJoursIdx = joursIdx !== -1 ? joursIdx : -1;
 
-      const netAPayerRaw = finalNetIdx !== -1 ? row[finalNetIdx] : 0;
-      const totalRaw = finalTotalIdx !== -1 ? row[finalTotalIdx] : 0;
-      const epiRaw = finalEpiIdx !== -1 ? row[finalEpiIdx] : 0;
+      let netAPayerRaw = finalNetIdx !== -1 ? row[finalNetIdx] : 0;
+      let totalRaw = finalTotalIdx !== -1 ? row[finalTotalIdx] : 0;
+      let epiRaw = finalEpiIdx !== -1 ? row[finalEpiIdx] : 0;
       
-      if (isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
-        continue;
+      // If one of them is empty or 0, fallback to the other
+      if (!isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
+        totalRaw = netAPayerRaw;
+      } else if (!isZeroAmount(totalRaw) && isZeroAmount(netAPayerRaw)) {
+        netAPayerRaw = totalRaw;
       }
-      if (isZeroAmount(netAPayerRaw) && !isZeroAmount(totalRaw)) {
+
+      if (isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
         continue;
       }
       
