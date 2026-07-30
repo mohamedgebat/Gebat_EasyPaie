@@ -32,7 +32,7 @@ export default function CalculPaie() {
   const [dateFin, setDateFin] = useState('');
   const [siteFilter, setSiteFilter] = useState('');
   const [qualificationFilter, setQualificationFilter] = useState('');
-  const [statutFilter, setStatutFilter] = useState('en_attente');
+  const [statutFilter, setStatutFilter] = useState('tous');
   const [settings, setSettings] = useState({
     epi_limits: {
       'Bingerville': 12000,
