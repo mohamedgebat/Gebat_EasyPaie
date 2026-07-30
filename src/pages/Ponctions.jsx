@@ -1823,9 +1823,9 @@ function PonctionsContent() {
                         </p>
                         <p className="text-xs font-bold text-indigo-700 mt-0.5">
                           Montant remboursé : {
-                            selectedWorkerData?.epi_remboursement > 0 
-                            ? `${formatCurrency(selectedWorkerData.epi_remboursement)}` 
-                            : (selectedWorkerData?.epi_deduction > 0 ? `- ${formatCurrency(selectedWorkerData.epi_deduction)} (Complément retenu)` : '0 F CFA')
+                            epiResult.remboursement > 0 
+                            ? `${formatCurrency(epiResult.remboursement)}` 
+                            : (epiResult.deduction > 0 ? `- ${formatCurrency(epiResult.deduction)} (Complément retenu)` : '0 F CFA')
                           }
                         </p>
                       </div>
