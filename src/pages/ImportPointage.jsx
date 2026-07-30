@@ -837,6 +837,16 @@ export default function ImportPointage() {
       const workerResponse = await apiFetch('/api/ouvriers');
       let workers = await workerResponse.json();
       
+      const semaineStr = extractedDates.semaine || '';
+      const siteStr = detectedSite || 'SONGON';
+      if (semaineStr && siteStr) {
+        try {
+          await apiFetch(`/api/pointages/batch?semaine=${semaineStr}&site=${siteStr}`, { method: 'DELETE' });
+        } catch (e) {
+          console.error("Erreur lors de la suppression des anciens pointages", e);
+        }
+      }
+
       const pointagesResponse = await apiFetch('/api/pointages');
       let dbPointages = await pointagesResponse.json();
       
