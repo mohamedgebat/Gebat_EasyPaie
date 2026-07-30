@@ -4,7 +4,7 @@ import {
   Plus, Search, History, AlertCircle, CheckCircle2, XCircle, Trash2, 
   AlertTriangle, Shield, UserCheck, Users, Calendar, DollarSign, 
   ArrowRight, X, Sparkles, RefreshCw, Check, HardHat, CreditCard,
-  Filter, Building2, Lock, Unlock, Download, FileText, FileSpreadsheet
+  Filter, Building2, Lock, Unlock, Download, FileText, FileSpreadsheet, LogOut
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '../lib/utils';
 import * as XLSX from 'xlsx-js-style';
@@ -372,6 +372,56 @@ function PonctionsContent() {
     } catch (error) {
       console.error('Error saving worker status:', error);
       alert('Erreur lors de l\'enregistrement');
+    } finally {
+      setIsSavingWorker(false);
+    }
+  };
+
+  const handleCancelDeparture = async () => {
+    if (!window.confirm("Voulez-vous vraiment annuler le départ de cet ouvrier ? Cela supprimera également les écritures de remboursement/complément liées au départ.")) {
+      return;
+    }
+    
+    setIsSavingWorker(true);
+    try {
+      const selectedWorkerData = ouvriers.find(o => Number(o.id) === Number(selectedWorker));
+      
+      // Mettre à jour l'ouvrier à l'état actif
+      const response = await apiFetch(`/api/ouvriers/${selectedWorker}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...selectedWorkerData,
+          statut: 'actif',
+          date_depart: null,
+          epi_departure_date: null,
+          epi_departure_option: null,
+          epi_lost_amount: 0,
+          epi_observations: null,
+          epi_remboursement: 0,
+          epi_deduction: 0,
+          epi_valeur_retenue: 0,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Erreur serveur lors de la mise à jour');
+
+      // Supprimer les ponctions liées au départ
+      const depPonctions = ponctions.filter(p => 
+        Number(p.ouvrier_id) === Number(selectedWorker) && 
+        (p.motif?.includes('Départ') || p.motif?.includes('EPI non retournés') || p.motif?.includes('EPI perdus') || p.motif?.includes('Remboursement caution'))
+      );
+
+      for (const dp of depPonctions) {
+        await apiFetch(`/api/ponctions/${dp.id}`, { method: 'DELETE' });
+      }
+
+      await fetchData();
+      handleWorkerSelect(selectedWorker);
+      alert('Départ annulé avec succès !');
+    } catch (error) {
+      console.error('Erreur lors de l\\'annulation du départ:', error);
+      alert('Erreur lors de l\\'annulation du départ');
     } finally {
       setIsSavingWorker(false);
     }
@@ -1760,6 +1810,35 @@ function PonctionsContent() {
                     </button>
                   </div>
                 </div>
+
+                {isWorkerAlreadyDeparted && (
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-indigo-50/60 border border-indigo-100 rounded-xl mb-4 mt-2">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-indigo-100 text-indigo-700 rounded-lg">
+                        <LogOut size={18} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-indigo-900">
+                          Date de départ : {selectedWorkerData?.date_depart ? formatDate(selectedWorkerData.date_depart) : 'Non spécifiée'}
+                        </p>
+                        <p className="text-xs font-bold text-indigo-700 mt-0.5">
+                          Caution : {
+                            selectedWorkerData?.epi_remboursement > 0 
+                            ? `+ ${formatCurrency(selectedWorkerData.epi_remboursement)} (Remboursement)` 
+                            : (selectedWorkerData?.epi_deduction > 0 ? `- ${formatCurrency(selectedWorkerData.epi_deduction)} (Complément retenu)` : '0 F CFA')
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleCancelDeparture}
+                      disabled={isSavingWorker}
+                      className="px-4 py-2 bg-white text-red-600 hover:bg-red-50 font-extrabold text-xs rounded-lg border border-red-200 flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+                    >
+                      <Trash2 size={14} /> Annuler le départ
+                    </button>
+                  </div>
+                )}
 
                 <div className="overflow-x-auto rounded-xl border border-gray-100">
                   {filteredWorkerPonctions.length > 0 ? (
