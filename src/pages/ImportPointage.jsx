@@ -525,18 +525,30 @@ export default function ImportPointage() {
       const finalEpiIdx = epiIdx !== -1 ? epiIdx : (isLegacySheet ? row.length - 2 : -1);
       const finalJoursIdx = joursIdx !== -1 ? joursIdx : -1;
 
-      let netAPayerRaw = finalNetIdx !== -1 ? row[finalNetIdx] : 0;
-      let totalRaw = finalTotalIdx !== -1 ? row[finalTotalIdx] : 0;
-      let epiRaw = finalEpiIdx !== -1 ? row[finalEpiIdx] : 0;
+      const parseRawAmount = (val) => {
+        if (!val) return 0;
+        const num = Number(String(val).replace(/[^0-9.-]+/g,""));
+        return isNaN(num) ? 0 : num;
+      };
+
+      let netAPayerRaw = parseRawAmount(finalNetIdx !== -1 ? row[finalNetIdx] : 0);
+      let totalRaw = parseRawAmount(finalTotalIdx !== -1 ? row[finalTotalIdx] : 0);
+      let epiRaw = parseRawAmount(finalEpiIdx !== -1 ? row[finalEpiIdx] : 0);
       
-      // If one of them is empty or 0, fallback to the other
-      if (!isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
-        totalRaw = netAPayerRaw;
-      } else if (!isZeroAmount(totalRaw) && isZeroAmount(netAPayerRaw)) {
-        netAPayerRaw = totalRaw;
+      if (isLegacySheet) {
+        // En cas de sheet sans entêtes reconnus, souvent 'totalRaw' capture les 'Jours' par erreur.
+        // Or, mathématiquement : Brut Excel = Net + EPI
+        totalRaw = netAPayerRaw + epiRaw;
+      } else {
+        // If one of them is empty or 0, fallback to the other
+        if (totalRaw === 0 && netAPayerRaw > 0) {
+          totalRaw = netAPayerRaw + epiRaw;
+        } else if (netAPayerRaw === 0 && totalRaw > 0) {
+          netAPayerRaw = totalRaw - epiRaw;
+        }
       }
 
-      if (isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
+      if (netAPayerRaw === 0 && totalRaw === 0) {
         continue;
       }
       
