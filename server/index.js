@@ -409,7 +409,12 @@ app.delete('/api/paies/:id', async (req, res) => {
 
 app.delete('/api/paies/semaine/:semaine', async (req, res) => {
   try {
-    await db.deletePaiesBySemaine(req.params.semaine);
+    const { site } = req.query;
+    if (site) {
+      await db.deletePaiesBySemaineAndSite(req.params.semaine, site);
+    } else {
+      await db.deletePaiesBySemaine(req.params.semaine);
+    }
     res.json({ message: `Paies for week ${req.params.semaine} deleted` });
   } catch (err) {
     res.status(500).json({ error: err.message });
