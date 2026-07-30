@@ -1,6 +1,6 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Upload, Check, AlertCircle, Plus, FileText, FileSpreadsheet, 
   Loader2, Calendar, Users, ArrowRight, CheckCircle2, ShieldAlert, 
@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx-js-style';
 import { formatCurrency, formatDate, extractWorkbookMetadata, extractSiteFromFilename } from '../lib/utils';
 
 export default function ImportPointage() {
+  const navigate = useNavigate();
   const [file, setFile] = useState(null);
   const [fileLoading, setFileLoading] = useState(false);
   const [previewData, setPreviewData] = useState([]);
