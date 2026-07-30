@@ -34,6 +34,7 @@ export default function CalculPaie() {
   const [siteFilter, setSiteFilter] = useState('');
   const [qualificationFilter, setQualificationFilter] = useState('');
   const [statutFilter, setStatutFilter] = useState('tous');
+  const [strictImportedWorkers, setStrictImportedWorkers] = useState([]);
   const [settings, setSettings] = useState({
     epi_limits: {
       'Bingerville': 12000,
@@ -127,18 +128,23 @@ export default function CalculPaie() {
 
   const syncWithLastImport = () => {
     try {
+      let savedMeta = null;
+      const savedMetaStr = localStorage.getItem('gebat_last_import_meta');
+      if (savedMetaStr) {
+        savedMeta = JSON.parse(savedMetaStr);
+      }
+
       if (location.state && location.state.fromImport) {
         if (location.state.semaine) setSemaine(location.state.semaine);
         if (location.state.site) setSiteFilter(location.state.site);
+        if (savedMeta && savedMeta.workerIds) setStrictImportedWorkers(savedMeta.workerIds);
         
         // Nettoyer l'état de l'historique pour éviter qu'un rafraîchissement force toujours ce filtre
         window.history.replaceState({}, document.title);
         return true;
       }
 
-      const savedMetaStr = localStorage.getItem('gebat_last_import_meta');
-      if (savedMetaStr) {
-        const savedMeta = JSON.parse(savedMetaStr);
+      if (savedMeta) {
         if (savedMeta.semaine) setSemaine(savedMeta.semaine);
         if (savedMeta.dateDebut && savedMeta.dateFin) {
           setDateDebut(savedMeta.dateDebut);
@@ -415,23 +421,34 @@ export default function CalculPaie() {
 
     // On part de la liste de tous les ouvriers de la base, filtrés par site et qualification
     let targetOuvriers = ouvriers.filter(o => {
-      if (o.statut === 'parti' && o.epi_settled) return false;
-      if (siteFilter) {
-        const oSite = String(o.site || '').trim().toLowerCase();
-        const sFilter = String(siteFilter).trim().toLowerCase();
-        const hasPointageOnSiteThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p) && String(p.site || '').trim().toLowerCase() === sFilter);
-        if (oSite !== sFilter && !hasPointageOnSiteThisWeek) {
+      // Si on vient juste d'importer, on limite STRICTEMENT aux ouvriers du dernier import
+      if (strictImportedWorkers && strictImportedWorkers.length > 0) {
+        if (!strictImportedWorkers.includes(Number(o.id))) {
           return false;
         }
       }
-      if (qualificationFilter && String(o.qualification || '').trim().toLowerCase() !== String(qualificationFilter).trim().toLowerCase()) return false;
+
+      if (o.statut === 'parti' && o.epi_settled) return false;
       
-      // Si la semaine sélectionnée a des pointages ou paies, on affiche UNIQUEMENT les ouvriers de cette sélection !
-      if (semaine && hasWeekData) {
-        const hasPointageThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
-        const hasPaieThisWeek = paies.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
-        if (!hasPointageThisWeek && !hasPaieThisWeek) {
-          return false;
+      // Si on n'est PAS en mode strict import, on applique les filtres habituels
+      if (!strictImportedWorkers || strictImportedWorkers.length === 0) {
+        if (siteFilter) {
+          const oSite = String(o.site || '').trim().toLowerCase();
+          const sFilter = String(siteFilter).trim().toLowerCase();
+          const hasPointageOnSiteThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p) && String(p.site || '').trim().toLowerCase() === sFilter);
+          if (oSite !== sFilter && !hasPointageOnSiteThisWeek) {
+            return false;
+          }
+        }
+        if (qualificationFilter && String(o.qualification || '').trim().toLowerCase() !== String(qualificationFilter).trim().toLowerCase()) return false;
+        
+        // Si la semaine sélectionnée a des pointages ou paies, on affiche UNIQUEMENT les ouvriers de cette sélection !
+        if (semaine && hasWeekData) {
+          const hasPointageThisWeek = pointages.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
+          const hasPaieThisWeek = paies.some(p => Number(p.ouvrier_id) === Number(o.id) && isRecordInCurrentSelection(p));
+          if (!hasPointageThisWeek && !hasPaieThisWeek) {
+            return false;
+          }
         }
       }
       return true;
@@ -1463,6 +1480,21 @@ export default function CalculPaie() {
             </select>
           </div>
         </div>
+
+        {strictImportedWorkers && strictImportedWorkers.length > 0 && (
+          <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-center justify-between">
+            <div className="flex items-center gap-2 text-amber-800 text-sm font-semibold">
+              <ShieldAlert size={16} />
+              Affichage verrouillé sur les ouvriers du dernier import uniquement.
+            </div>
+            <button 
+              onClick={() => setStrictImportedWorkers([])}
+              className="px-3 py-1.5 bg-white border border-amber-300 text-amber-700 rounded-lg text-xs font-bold hover:bg-amber-100 transition-colors"
+            >
+              Voir tous les ouvriers
+            </button>
+          </div>
+        )}
 
         {/* Action Buttons Bar */}
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4 border-t border-gray-100">
