@@ -290,6 +290,11 @@ export default function ImportPointage() {
         // Process all sheets
         const allSheetsData = {};
         workbook.SheetNames.forEach((sheetName) => {
+          const lowerName = sheetName.toLowerCase();
+          if (lowerName.includes('instruction') || lowerName.includes('synthèse') || lowerName.includes('synthese') || lowerName.includes('résumé') || lowerName.includes('resume')) {
+            return; // Ignorer les feuilles d'instructions et de résumé
+          }
+          
           const sheet = workbook.Sheets[sheetName];
           const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 });
           
@@ -488,19 +493,32 @@ export default function ImportPointage() {
     if (headerRowIndex === -1) return [];
     
     const headerRow = rawData[headerRowIndex];
+    const subHeaderRow = rawData[headerRowIndex + 1] || [];
     let nameIdx = 1, qualIdx = 2, joursIdx = -1, totalIdx = -1, epiIdx = -1, netIdx = -1, montantIdx = -1;
     
-    headerRow.forEach((cell, idx) => {
-      if (!cell) return;
-      const str = String(cell).toUpperCase();
+    const maxCols = Math.max(headerRow.length, subHeaderRow.length);
+    let lastHeader = '';
+    
+    for (let idx = 0; idx < maxCols; idx++) {
+      let cell1 = headerRow[idx] ? String(headerRow[idx]).toUpperCase() : '';
+      if (cell1 !== '') {
+        lastHeader = cell1;
+      } else {
+        cell1 = lastHeader; // Propagate merged header
+      }
+      
+      const cell2 = subHeaderRow[idx] ? String(subHeaderRow[idx]).toUpperCase() : '';
+      const str = cell1 + ' ' + cell2;
+      
       if (str.includes('NOM') || str.includes('PRENOM') || str.includes('OUVRIER')) nameIdx = idx;
       else if (str.includes('QUALIF')) qualIdx = idx;
-      else if (str.includes('JOUR')) joursIdx = idx;
-      else if (str.includes('TOTAL') || str.includes('BRUT')) totalIdx = idx;
-      else if (str.includes('MONTANT')) montantIdx = idx;
+      else if (str.includes('TOTAL') && str.includes('MONTANT')) totalIdx = idx;
+      else if (str.includes('TOTAL') && (str.includes('JOUR') || str.includes('JR'))) joursIdx = idx;
+      else if (str.includes('TOTAL') && totalIdx === -1 && !str.includes('JOUR') && !str.includes('JR')) totalIdx = idx;
+      else if (str.includes('MONTANT') && montantIdx === -1 && !str.includes('TOTAL')) montantIdx = idx;
       else if (str.includes('EPI') || str.includes('RETENUE') || str.includes('AVANCE')) epiIdx = idx;
       else if (str.includes('NET') || str.includes('PAYER') || str.includes('PAYE') || str.includes('SALAIRE')) netIdx = idx;
-    });
+    }
 
     // Extract qualification from sheet name or title
     const qualification = sheetName.replace(/FICHE D'EMARGEMENT DES /i, '').replace(/\/\s*SEMAINE.*/i, '').trim();
