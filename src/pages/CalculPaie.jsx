@@ -1,6 +1,6 @@
 import { apiFetch } from '../lib/api';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calculator, Download, AlertCircle, CheckCircle, FileText, 
   Calendar, Building2, Users, DollarSign, ArrowRight, CheckCircle2, 
@@ -14,6 +14,7 @@ import gebatLogo from '../assets/logo_gebat.png';
 
 export default function CalculPaie() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [pointages, setPointages] = useState([]);
   const [ponctions, setPonctions] = useState([]);
   const [epiProgrammes, setEpiProgrammes] = useState([]);
@@ -126,6 +127,15 @@ export default function CalculPaie() {
 
   const syncWithLastImport = () => {
     try {
+      if (location.state && location.state.fromImport) {
+        if (location.state.semaine) setSemaine(location.state.semaine);
+        if (location.state.site) setSiteFilter(location.state.site);
+        
+        // Nettoyer l'état de l'historique pour éviter qu'un rafraîchissement force toujours ce filtre
+        window.history.replaceState({}, document.title);
+        return true;
+      }
+
       const savedMetaStr = localStorage.getItem('gebat_last_import_meta');
       if (savedMetaStr) {
         const savedMeta = JSON.parse(savedMetaStr);

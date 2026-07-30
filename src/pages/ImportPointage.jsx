@@ -986,6 +986,16 @@ export default function ImportPointage() {
       setSheetsData({});
       setSelectedSheet(null);
       setExtractedDates({ debut: '', fin: '' });
+      
+      // Redirection automatique vers le Calcul de la Paie
+      navigate('/calcul-paie', { 
+        state: { 
+          fromImport: true, 
+          site: detectedSite || 'SONGON', 
+          semaine: extractedDates.semaine || '' 
+        } 
+      });
+      
     } catch (error) {
       console.error('Error importing:', error);
       alert('Erreur lors de l\'import en base de données.');
