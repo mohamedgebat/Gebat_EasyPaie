@@ -359,10 +359,11 @@ export default function CalculPaie() {
       return { montant: 0, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
     }
 
-    // Si on a déjà commencé à payer, on déduit automatiquement le reste
-    if (totalPaid > 0) {
-      return { montant: epiLimit - totalPaid, has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
-    }
+    // L'utilisateur ne veut plus que ça se déduise automatiquement sur toutes les autres semaines.
+    // Ça ne doit se déduire QUE si ça a été programmé pour cette semaine ou si ça a été saisi manuellement.
+    // if (totalPaid > 0) {
+    //   return { montant: Math.min(5000, epiLimit - totalPaid), has_existing: false, existing_id: null, totalPaid, epiLimit, fromProgram: false, programId: null };
+    // }
 
     // Si c'est la 1ère fois (totalPaid === 0)
     const workerProgram = epiProgrammes.find(e => Number(e.ouvrier_id) === Number(ouvrierId));
