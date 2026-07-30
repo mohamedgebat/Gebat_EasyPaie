@@ -284,10 +284,18 @@ export default function CalculPaie() {
     const pParts = extractParts(pSem);
     const selParts = extractParts(selSem);
     
-    if (selParts.week && pParts.week && pParts.week === selParts.week) {
-      if (pParts.year && selParts.year) return pParts.year === selParts.year;
-      return true;
+    // Si les deux ont un numéro de semaine
+    if (selParts.week && pParts.week) {
+      if (pParts.week === selParts.week) {
+        if (pParts.year && selParts.year) return pParts.year === selParts.year;
+        return true;
+      } else {
+        // Ils ont des semaines différentes explicitly définies (ex: S27 vs S30), donc ce n'est PAS la même sélection
+        return false;
+      }
     }
+    
+    // Si on n'a pas pu matcher par semaine (l'un d'eux n'a pas de semaine définie), on fallback sur les dates
     if (dateDebut && dateFin && p.date) {
       const dStr = String(p.date).split('T')[0];
       if (dStr >= String(dateDebut).split('T')[0] && dStr <= String(dateFin).split('T')[0]) return true;
