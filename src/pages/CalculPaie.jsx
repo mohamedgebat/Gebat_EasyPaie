@@ -447,9 +447,12 @@ export default function CalculPaie() {
       const isDejaPaye = isPaidLocked;
 
       // 3. Déterminer le salaire brut de la semaine ('étant donné qu'il y'a déjà des noms dans la base avec un montant, pour chaque semaine il doit avoir un nouveau montant à payer')
-      let salaireBrut = isPaidLocked && existingPaie.salaire_brut !== undefined 
-        ? Number(existingPaie.salaire_brut) 
-        : (currentWeekPointage ? (Number(currentWeekPointage.salaire_brut) || 0) : 0);
+      let salaireBrut = 0;
+      if (currentWeekPointage && currentWeekPointage.salaire_brut !== undefined) {
+        salaireBrut = Number(currentWeekPointage.salaire_brut);
+      } else if (isPaidLocked && existingPaie.salaire_brut !== undefined) {
+        salaireBrut = Number(existingPaie.salaire_brut);
+      }
 
       let pointageId = currentWeekPointage ? currentWeekPointage.id : null;
       let datePointage = currentWeekPointage ? currentWeekPointage.date : (dateFin || datePaie || new Date().toISOString().split('T')[0]);
@@ -473,6 +476,16 @@ export default function CalculPaie() {
         }
       }
 
+      // DEBUG: LOG FOR MASSIE ARSENE
+      if (ouvrier.nom.includes('MASSIE')) {
+        console.log('[DEBUG_CALCUL_PAIE] MASSIE ARSENE ->', {
+          currentWeekPointage,
+          existingPaie,
+          isPaidLocked,
+          salaireBrut,
+          semaine
+        });
+      }
 
       // 4. Calcul de la ponction pour cette semaine
       const fullCalc = calculatePonction(ouvrier.id, salaireBrut, datePointage);
