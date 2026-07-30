@@ -482,50 +482,78 @@ export default function ImportPointage() {
     
     if (headerRowIndex === -1) return [];
     
-    // Extract qualification from sheet name or title
-    const qualification = sheetName.replace(/FICHE D'EMARGEMENT DES /i, '').replace(/\/ SEMAINE.*/i, '').trim();
+    const headerRow = rawData[headerRowIndex];
+    let nameIdx = 1, qualIdx = 2, joursIdx = -1, totalIdx = -1, epiIdx = -1, netIdx = -1, montantIdx = -1;
     
-    // Process data rows (start after header + 1 row for sub-headers)
+    headerRow.forEach((cell, idx) => {
+      if (!cell) return;
+      const str = String(cell).toUpperCase();
+      if (str.includes('NOM ET PRENOM')) nameIdx = idx;
+      else if (str.includes('QUALIF')) qualIdx = idx;
+      else if (str === 'JOURS' || str === 'JOURS TRAVAILLES') joursIdx = idx;
+      else if (str === 'TOTAL') totalIdx = idx;
+      else if (str === 'MONTANT') montantIdx = idx;
+      else if (str.includes('EPI')) epiIdx = idx;
+      else if (str.includes('NET A PAYER') || str.includes('NET À PAYER')) netIdx = idx;
+    });
+
+    // Extract qualification from sheet name or title
+    const qualification = sheetName.replace(/FICHE D'EMARGEMENT DES /i, '').replace(/\/\s*SEMAINE.*/i, '').trim();
+    
+    // Process data rows
     const dataRows = [];
-    for (let i = headerRowIndex + 2; i < rawData.length; i++) {
+    let startIdx = headerRowIndex + 1;
+    if (rawData[startIdx] && rawData[startIdx].some(cell => cell === 'J' || cell === 'V' || cell === 'S' || cell === 'D')) {
+      startIdx++;
+    }
+
+    for (let i = startIdx; i < rawData.length; i++) {
       const row = rawData[i];
       if (!row || row.length === 0) continue;
       
-      // Skip empty rows or rows without a name
-      const name = row[1];
+      const name = row[nameIdx];
       if (!name || name === '' || typeof name === 'number') continue;
       
-      const netAPayerRaw = row[row.length - 1];
-      const totalRaw = row[row.length - 3];
+      const isLegacySheet = (totalIdx === -1 && netIdx === -1 && montantIdx === -1);
+      
+      const finalNetIdx = netIdx !== -1 ? netIdx : (montantIdx !== -1 ? montantIdx : (isLegacySheet ? row.length - 1 : -1));
+      const finalTotalIdx = totalIdx !== -1 ? totalIdx : (isLegacySheet ? row.length - 3 : -1);
+      const finalEpiIdx = epiIdx !== -1 ? epiIdx : (isLegacySheet ? row.length - 2 : -1);
+      const finalJoursIdx = joursIdx !== -1 ? joursIdx : -1;
 
-      // Exclude workers with 0 F CFA amount (or 0 total)
+      const netAPayerRaw = finalNetIdx !== -1 ? row[finalNetIdx] : 0;
+      const totalRaw = finalTotalIdx !== -1 ? row[finalTotalIdx] : 0;
+      const epiRaw = finalEpiIdx !== -1 ? row[finalEpiIdx] : 0;
+      
       if (isZeroAmount(netAPayerRaw) && isZeroAmount(totalRaw)) {
         continue;
       }
       if (isZeroAmount(netAPayerRaw) && !isZeroAmount(totalRaw)) {
-        // If net is 0 F CFA explicitly, skip
         continue;
       }
       
-      // Calculate total days including 0,5
       let totalDays = 0;
-      for (let j = 2; j <= row.length - 4; j++) {
-        const val = row[j];
-        if (val === 1 || val === '1') {
-          totalDays += 1;
-        } else if (val === 0.5 || val === '0.5' || val === '0,5' || val === ',5' || val === '.5') {
-          totalDays += 0.5;
+      if (finalJoursIdx !== -1 && row[finalJoursIdx]) {
+         totalDays = Number(row[finalJoursIdx]) || 0;
+      } else if (isLegacySheet) {
+        for (let j = 2; j <= row.length - 4; j++) {
+          const val = row[j];
+          if (val === 1 || val === '1') {
+            totalDays += 1;
+          } else if (val === 0.5 || val === '0.5' || val === '0,5' || val === ',5' || val === '.5') {
+            totalDays += 0.5;
+          }
         }
       }
 
       const processedRow = {
         'NOM ET PRENOMS': name,
         'Qualification': qualification,
-        'S/N': row[0],
+        'S/N': row[0] || '',
         'JOURS_TRAVAILLES': totalDays,
-        'TOTAL': row[row.length - 3],
-        'RETENUE EPI': row[row.length - 2],
-        'NET A PAYER': row[row.length - 1],
+        'TOTAL': totalRaw,
+        'RETENUE EPI': epiRaw,
+        'NET A PAYER': netAPayerRaw,
       };
       
       dataRows.push(processedRow);
