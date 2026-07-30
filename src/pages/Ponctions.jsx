@@ -420,8 +420,8 @@ function PonctionsContent() {
       handleWorkerSelect(selectedWorker);
       alert('Départ annulé avec succès !');
     } catch (error) {
-      console.error('Erreur lors de l\\'annulation du départ:', error);
-      alert('Erreur lors de l\\'annulation du départ');
+      console.error("Erreur lors de l'annulation du départ:", error);
+      alert("Erreur lors de l'annulation du départ");
     } finally {
       setIsSavingWorker(false);
     }
