@@ -575,7 +575,7 @@ export default function CalculPaie() {
         operateur: ouvrier.operateur || '',
         numero_mobile_money: ouvrier.numero_mobile_money || '',
         qualification: ouvrier.qualification || '',
-        site: ouvrier.site || '',
+        site: (isDejaPaye && existingPaie.site) ? existingPaie.site : (currentWeekPointage && currentWeekPointage.site ? currentWeekPointage.site : (ouvrier.site || '')),
         date: isDejaPaye && existingPaie.date ? existingPaie.date : (dateFin || datePaie || datePointage),
         semaine: isDejaPaye && existingPaie.semaine ? existingPaie.semaine : semaine,
         date_debut: dateDebut || null,
