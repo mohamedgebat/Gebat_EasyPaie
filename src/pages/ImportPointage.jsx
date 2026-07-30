@@ -842,8 +842,9 @@ export default function ImportPointage() {
       if (semaineStr && siteStr) {
         try {
           await apiFetch(`/api/pointages/batch?semaine=${semaineStr}&site=${siteStr}`, { method: 'DELETE' });
+          await apiFetch(`/api/paies/semaine/${semaineStr}?site=${siteStr}`, { method: 'DELETE' });
         } catch (e) {
-          console.error("Erreur lors de la suppression des anciens pointages", e);
+          console.error("Erreur lors de la suppression des anciens pointages/paies", e);
         }
       }
 

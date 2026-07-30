@@ -399,6 +399,10 @@ const dbInterface = {
     await pool.query('DELETE FROM paies WHERE semaine = ?', [semaine]);
   },
 
+  deletePaiesBySemaineAndSite: async (semaine, site) => {
+    await pool.query('DELETE FROM paies WHERE semaine = ? AND (site = ? OR site IS NULL OR site = "")', [semaine, site]);
+  },
+
   reloadDatabase: async () => {
     return true;
   },
