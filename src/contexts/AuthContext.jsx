@@ -39,53 +39,33 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     if (!username || !password) return false;
-    const inputUser = String(username).trim().toLowerCase();
+    const inputUser = String(username).trim();
     const inputPass = String(password).trim();
 
     try {
-      const res = await apiFetch('/api/utilisateurs');
-      if (res.ok) {
-        const dbUsers = await res.json();
-        const matched = dbUsers.find(u => {
-          const uName = String(u.username || '').trim().toLowerCase();
-          const uPass = String(u.password || '').trim();
-          const isActif = u.statut === 'actif' || !u.statut;
-          return uName === inputUser && uPass === inputPass && isActif;
-        });
+      const res = await apiFetch('/api/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ username: inputUser, password: inputPass })
+      });
 
-        if (matched) {
-          setIsAuthenticated(true);
-          setCurrentUser(matched);
-          localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('easypaie_current_user', JSON.stringify(matched));
-          window.dispatchEvent(new Event('storage'));
-          return true;
-        }
+      if (res.ok) {
+        const data = await res.json();
+        
+        setIsAuthenticated(true);
+        setCurrentUser(data.user);
+        localStorage.setItem('isAuthenticated', 'true');
+        localStorage.setItem('easypaie_current_user', JSON.stringify(data.user));
+        localStorage.setItem('easypaie_jwt_token', data.token);
+        window.dispatchEvent(new Event('storage'));
+        return true;
       }
     } catch (e) {
-      console.error('Error authenticating user from API, falling back to local check', e);
+      console.error('Error authenticating user from API', e);
     }
-
-    // Default built-in admin fallback in case API is offline (or database not seeded yet)
-    if (inputUser === 'admin' && inputPass === 'admin123') {
-      const defaultUser = {
-        id: 'builtin-admin',
-        username: 'admin',
-        email: 'admin@gebat.ci',
-        password: 'admin123',
-        titre: 'Administrateur Général GEBAT',
-        role: 'Administrateur',
-        statut: 'actif',
-        isBuiltIn: true
-      };
-      setIsAuthenticated(true);
-      setCurrentUser(defaultUser);
-      localStorage.setItem('isAuthenticated', 'true');
-      localStorage.setItem('easypaie_current_user', JSON.stringify(defaultUser));
-      window.dispatchEvent(new Event('storage'));
-      return true;
-    }
-
+    
     return false;
   };
 
@@ -93,6 +73,7 @@ export const AuthProvider = ({ children }) => {
     setIsAuthenticated(false);
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('easypaie_current_user');
+    localStorage.removeItem('easypaie_jwt_token');
   };
 
   return (

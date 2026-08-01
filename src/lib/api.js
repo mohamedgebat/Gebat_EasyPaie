@@ -15,5 +15,14 @@ export const API_BASE = import.meta.env.VITE_API_URL || '';
  * @returns {Promise<Response>}
  */
 export function apiFetch(path, options = {}) {
+  const token = localStorage.getItem('easypaie_jwt_token');
+  
+  if (token) {
+    options.headers = {
+      ...options.headers,
+      'Authorization': `Bearer ${token}`
+    };
+  }
+  
   return fetch(`${API_BASE}${path}`, options);
 }

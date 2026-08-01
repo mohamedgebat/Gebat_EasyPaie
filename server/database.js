@@ -1,4 +1,5 @@
 import mysql from 'mysql2/promise';
+import bcrypt from 'bcryptjs';
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
@@ -421,12 +422,17 @@ const dbInterface = {
   addUtilisateur: async (data) => {
     const username = data.username || '';
     const email = data.email || '';
-    const password = data.password || '';
+    let password = data.password || '';
     const titre = data.titre || '';
     const role = data.role || 'Gestionnaire Paie';
     const statut = data.statut || 'actif';
     const created_at = getCurrentTimestamp();
     const updated_at = created_at;
+
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      password = await bcrypt.hash(password, salt);
+    }
 
     const [res] = await pool.query(
       `INSERT INTO utilisateurs (username, email, password, titre, role, statut, created_at, updated_at) 
@@ -448,8 +454,13 @@ const dbInterface = {
     const allowed = ['username', 'email', 'password', 'titre', 'role', 'statut'];
     for (const key of allowed) {
       if (data[key] !== undefined) {
+        let val = data[key];
+        if (key === 'password' && val) {
+          const salt = await bcrypt.genSalt(10);
+          val = await bcrypt.hash(val, salt);
+        }
         fields.push(`\`${key}\` = ?`);
-        values.push(data[key]);
+        values.push(val);
       }
     }
 

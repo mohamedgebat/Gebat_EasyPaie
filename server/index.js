@@ -1,12 +1,79 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import db from './database.js';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'gebat_super_secret_key_2026';
+
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+app.use(helmet());
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200, // 200 requests per windowMs
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api', limiter);
+
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*', 
+  optionsSuccessStatus: 200
+}));
 app.use(express.json());
+
+// Authentication Middleware
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) return res.status(401).json({ error: 'Accès refusé. Token manquant.' });
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) return res.status(403).json({ error: 'Token invalide ou expiré.' });
+    req.user = user;
+    next();
+  });
+};
+
+const requireRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user || !roles.includes(req.user.role)) {
+      return res.status(403).json({ error: 'Permission refusée pour ce rôle.' });
+    }
+    next();
+  };
+};
+
+// Login Route
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const users = await db.getUtilisateurs();
+    const user = users.find(u => u.username === username && u.statut === 'actif');
+    
+    if (!user) return res.status(401).json({ error: 'Identifiants invalides' });
+    
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) return res.status(401).json({ error: 'Identifiants invalides' });
+
+    const token = jwt.sign(
+      { id: user.id, role: user.role, username: user.username }, 
+      JWT_SECRET, 
+      { expiresIn: '12h' }
+    );
+    
+    const { password: _, ...userWithoutPassword } = user;
+    res.json({ token, user: userWithoutPassword });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 // Healthcheck route (database independent)
 app.get('/api/health', (req, res) => res.status(200).send('OK'));
@@ -65,7 +132,7 @@ app.get('/api/debug-db', async (req, res) => {
 });
 
 // Ouvriers routes
-app.get('/api/ouvriers', async (req, res) => {
+app.get('/api/ouvriers', authenticateToken, async (req, res) => {
   try {
     const ouvriers = await db.getOuvriers();
     res.json(ouvriers);
@@ -74,7 +141,7 @@ app.get('/api/ouvriers', async (req, res) => {
   }
 });
 
-app.get('/api/ouvriers/:id', async (req, res) => {
+app.get('/api/ouvriers/:id', authenticateToken, async (req, res) => {
   try {
     const ouvrier = await db.getOuvrier(parseInt(req.params.id));
     if (ouvrier) {
@@ -87,7 +154,7 @@ app.get('/api/ouvriers/:id', async (req, res) => {
   }
 });
 
-app.post('/api/ouvriers', async (req, res) => {
+app.post('/api/ouvriers', authenticateToken, async (req, res) => {
   try {
     const { matricule, nom, prenom, telephone, site, qualification, operateur, numero_mobile_money, date_entree, statut } = req.body;
     const result = await db.addOuvrier({ matricule, nom, prenom, telephone, site, qualification, operateur, numero_mobile_money, date_entree, statut });
@@ -97,7 +164,7 @@ app.post('/api/ouvriers', async (req, res) => {
   }
 });
 
-app.put('/api/ouvriers/:id', async (req, res) => {
+app.put('/api/ouvriers/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.updateOuvrier(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -106,7 +173,7 @@ app.put('/api/ouvriers/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/ouvriers/:id', async (req, res) => {
+app.delete('/api/ouvriers/:id', authenticateToken, async (req, res) => {
   try {
     await db.deleteOuvrier(parseInt(req.params.id));
     res.json({ message: 'Ouvrier deleted' });
@@ -116,7 +183,7 @@ app.delete('/api/ouvriers/:id', async (req, res) => {
 });
 
 // EPI Fournis routes
-app.get('/api/epi-fournis', async (req, res) => {
+app.get('/api/epi-fournis', authenticateToken, async (req, res) => {
   try {
     const result = await db.getEpiFournis();
     res.json(result);
@@ -125,7 +192,7 @@ app.get('/api/epi-fournis', async (req, res) => {
   }
 });
 
-app.post('/api/epi-fournis', async (req, res) => {
+app.post('/api/epi-fournis', authenticateToken, async (req, res) => {
   try {
     const result = await db.addEpiFourni(req.body);
     res.json(result);
@@ -134,7 +201,7 @@ app.post('/api/epi-fournis', async (req, res) => {
   }
 });
 
-app.delete('/api/epi-fournis/:id', async (req, res) => {
+app.delete('/api/epi-fournis/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.deleteEpiFourni(parseInt(req.params.id));
     res.json({ success: result });
@@ -144,7 +211,7 @@ app.delete('/api/epi-fournis/:id', async (req, res) => {
 });
 
 // Pointages routes
-app.get('/api/pointages', async (req, res) => {
+app.get('/api/pointages', authenticateToken, async (req, res) => {
   try {
     const pointages = await db.getPointages();
     res.json(pointages);
@@ -153,7 +220,7 @@ app.get('/api/pointages', async (req, res) => {
   }
 });
 
-app.post('/api/pointages', async (req, res) => {
+app.post('/api/pointages', authenticateToken, async (req, res) => {
   try {
     const { ouvrier_id, date, salaire_brut, date_debut, date_fin, semaine, site } = req.body;
     const result = await db.addPointage({ 
@@ -171,7 +238,7 @@ app.post('/api/pointages', async (req, res) => {
   }
 });
 
-app.put('/api/pointages/:id', async (req, res) => {
+app.put('/api/pointages/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.updatePointage(parseInt(req.params.id), req.body);
     res.json(result);
@@ -180,7 +247,7 @@ app.put('/api/pointages/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/pointages/batch', async (req, res) => {
+app.delete('/api/pointages/batch', authenticateToken, async (req, res) => {
   try {
     const { semaine, site } = req.query;
     if (!semaine) {
@@ -194,7 +261,7 @@ app.delete('/api/pointages/batch', async (req, res) => {
 });
 
 // EPI Programmes routes
-app.get('/api/epi-programmes', async (req, res) => {
+app.get('/api/epi-programmes', authenticateToken, async (req, res) => {
   try {
     const result = await db.getEpiProgrammes();
     res.json(result);
@@ -203,7 +270,7 @@ app.get('/api/epi-programmes', async (req, res) => {
   }
 });
 
-app.post('/api/epi-programmes', async (req, res) => {
+app.post('/api/epi-programmes', authenticateToken, async (req, res) => {
   try {
     const result = await db.addEpiProgramme(req.body);
     res.json(result);
@@ -212,7 +279,7 @@ app.post('/api/epi-programmes', async (req, res) => {
   }
 });
 
-app.delete('/api/epi-programmes/:id', async (req, res) => {
+app.delete('/api/epi-programmes/:id', authenticateToken, async (req, res) => {
   try {
     await db.deleteEpiProgramme(parseInt(req.params.id));
     res.json({ message: 'Programme EPI supprimé' });
@@ -222,7 +289,7 @@ app.delete('/api/epi-programmes/:id', async (req, res) => {
 });
 
 // Ponctions routes
-app.get('/api/ponctions', async (req, res) => {
+app.get('/api/ponctions', authenticateToken, async (req, res) => {
   try {
     const ponctions = await db.getPonctions();
     res.json(ponctions);
@@ -231,7 +298,7 @@ app.get('/api/ponctions', async (req, res) => {
   }
 });
 
-app.get('/api/ponctions/ouvrier/:ouvrierId', async (req, res) => {
+app.get('/api/ponctions/ouvrier/:ouvrierId', authenticateToken, async (req, res) => {
   try {
     const ponctions = await db.getPonctionsByOuvrier(parseInt(req.params.ouvrierId));
     res.json(ponctions);
@@ -240,7 +307,7 @@ app.get('/api/ponctions/ouvrier/:ouvrierId', async (req, res) => {
   }
 });
 
-app.post('/api/ponctions', async (req, res) => {
+app.post('/api/ponctions', authenticateToken, async (req, res) => {
   try {
     const { ouvrier_id, date, montant, motif } = req.body;
     const result = await db.addPonction({ ouvrier_id: parseInt(ouvrier_id), date, montant, motif });
@@ -250,7 +317,7 @@ app.post('/api/ponctions', async (req, res) => {
   }
 });
 
-app.put('/api/ponctions/:id', async (req, res) => {
+app.put('/api/ponctions/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.updatePonction(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -259,7 +326,7 @@ app.put('/api/ponctions/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/ponctions/:id', async (req, res) => {
+app.delete('/api/ponctions/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.deletePonction(parseInt(req.params.id));
     res.json({ success: result });
@@ -269,7 +336,7 @@ app.delete('/api/ponctions/:id', async (req, res) => {
 });
 
 // Loyers routes
-app.get('/api/loyers', async (req, res) => {
+app.get('/api/loyers', authenticateToken, async (req, res) => {
   try {
     const loyers = await db.getLoyers();
     res.json(loyers);
@@ -278,7 +345,7 @@ app.get('/api/loyers', async (req, res) => {
   }
 });
 
-app.get('/api/loyers/ouvrier/:ouvrierId', async (req, res) => {
+app.get('/api/loyers/ouvrier/:ouvrierId', authenticateToken, async (req, res) => {
   try {
     const loyers = await db.getLoyersByOuvrier(parseInt(req.params.ouvrierId));
     res.json(loyers);
@@ -287,7 +354,7 @@ app.get('/api/loyers/ouvrier/:ouvrierId', async (req, res) => {
   }
 });
 
-app.post('/api/loyers', async (req, res) => {
+app.post('/api/loyers', authenticateToken, async (req, res) => {
   try {
     const { ouvrier_id, site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
     const result = await db.addLoyer({ ouvrier_id: parseInt(ouvrier_id), site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
@@ -297,7 +364,7 @@ app.post('/api/loyers', async (req, res) => {
   }
 });
 
-app.put('/api/loyers/:id', async (req, res) => {
+app.put('/api/loyers/:id', authenticateToken, async (req, res) => {
   try {
     const { site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
     await db.updateLoyer(parseInt(req.params.id), { site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
@@ -307,7 +374,7 @@ app.put('/api/loyers/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/loyers/:id', async (req, res) => {
+app.delete('/api/loyers/:id', authenticateToken, async (req, res) => {
   try {
     await db.deleteLoyer(parseInt(req.params.id));
     res.json({ message: 'Loyer deleted' });
@@ -317,7 +384,7 @@ app.delete('/api/loyers/:id', async (req, res) => {
 });
 
 // Paiements loyer routes
-app.get('/api/paiements-loyer', async (req, res) => {
+app.get('/api/paiements-loyer', authenticateToken, async (req, res) => {
   try {
     const paiements = await db.getPaiementsLoyer();
     res.json(paiements);
@@ -326,7 +393,7 @@ app.get('/api/paiements-loyer', async (req, res) => {
   }
 });
 
-app.get('/api/paiements-loyer/ouvrier/:ouvrierId', async (req, res) => {
+app.get('/api/paiements-loyer/ouvrier/:ouvrierId', authenticateToken, async (req, res) => {
   try {
     const paiements = await db.getPaiementsLoyerByOuvrier(parseInt(req.params.ouvrierId));
     res.json(paiements);
@@ -335,7 +402,7 @@ app.get('/api/paiements-loyer/ouvrier/:ouvrierId', async (req, res) => {
   }
 });
 
-app.post('/api/paiements-loyer', async (req, res) => {
+app.post('/api/paiements-loyer', authenticateToken, async (req, res) => {
   try {
     const { ouvrier_id, mois, annee, montant } = req.body;
     const result = await db.addPaiementLoyer({ ouvrier_id: parseInt(ouvrier_id), mois, annee: parseInt(annee), montant });
@@ -345,7 +412,7 @@ app.post('/api/paiements-loyer', async (req, res) => {
   }
 });
 
-app.get('/api/migrate-loyers', async (req, res) => {
+app.get('/api/migrate-loyers', authenticateToken, async (req, res) => {
   try {
     await db.pool.query('ALTER TABLE loyers ADD COLUMN nombre_tranches INT DEFAULT 1;');
     res.json({ success: true, message: "Migration OK" });
@@ -359,7 +426,7 @@ app.get('/api/migrate-loyers', async (req, res) => {
 });
 
 // Paies routes
-app.get('/api/paies', async (req, res) => {
+app.get('/api/paies', authenticateToken, async (req, res) => {
   try {
     const paies = await db.getPaies();
     res.json(paies);
@@ -368,7 +435,7 @@ app.get('/api/paies', async (req, res) => {
   }
 });
 
-app.get('/api/paies/semaine/:semaine', async (req, res) => {
+app.get('/api/paies/semaine/:semaine', authenticateToken, async (req, res) => {
   try {
     const paies = await db.getPaiesBySemaine(req.params.semaine);
     res.json(paies);
@@ -377,7 +444,7 @@ app.get('/api/paies/semaine/:semaine', async (req, res) => {
   }
 });
 
-app.post('/api/paies', async (req, res) => {
+app.post('/api/paies', authenticateToken, async (req, res) => {
   try {
     const result = await db.addPaie({
       ...req.body,
@@ -389,7 +456,7 @@ app.post('/api/paies', async (req, res) => {
   }
 });
 
-app.put('/api/paies/:id', async (req, res) => {
+app.put('/api/paies/:id', authenticateToken, async (req, res) => {
   try {
     const result = await db.updatePaie(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -398,7 +465,7 @@ app.put('/api/paies/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/paies/:id', async (req, res) => {
+app.delete('/api/paies/:id', authenticateToken, async (req, res) => {
   try {
     await db.deletePaie(parseInt(req.params.id));
     res.json({ message: 'Paie deleted' });
@@ -407,7 +474,7 @@ app.delete('/api/paies/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/paies/semaine/:semaine', async (req, res) => {
+app.delete('/api/paies/semaine/:semaine', authenticateToken, async (req, res) => {
   try {
     const { site } = req.query;
     if (site) {
@@ -422,7 +489,7 @@ app.delete('/api/paies/semaine/:semaine', async (req, res) => {
 });
 
 // Utilisateurs routes
-app.get('/api/utilisateurs', async (req, res) => {
+app.get('/api/utilisateurs', authenticateToken, async (req, res) => {
   try {
     const utilisateurs = await db.getUtilisateurs();
     res.json(utilisateurs);
@@ -431,7 +498,7 @@ app.get('/api/utilisateurs', async (req, res) => {
   }
 });
 
-app.get('/api/utilisateurs/:id', async (req, res) => {
+app.get('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
   try {
     const user = await db.getUtilisateur(parseInt(req.params.id));
     if (user) {
@@ -444,7 +511,7 @@ app.get('/api/utilisateurs/:id', async (req, res) => {
   }
 });
 
-app.post('/api/utilisateurs', async (req, res) => {
+app.post('/api/utilisateurs', authenticateToken, async (req, res) => {
   try {
     const { username, email, password, titre, role, statut } = req.body;
     const result = await db.addUtilisateur({ username, email, password, titre, role, statut });
@@ -454,7 +521,7 @@ app.post('/api/utilisateurs', async (req, res) => {
   }
 });
 
-app.put('/api/utilisateurs/:id', async (req, res) => {
+app.put('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
   try {
     // Protection : empêche la désactivation du compte admin
     const existing = await db.getUtilisateur(parseInt(req.params.id));
@@ -468,7 +535,7 @@ app.put('/api/utilisateurs/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/utilisateurs/:id', async (req, res) => {
+app.delete('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
   try {
     // Protection : empêche la suppression du compte admin
     const existing = await db.getUtilisateur(parseInt(req.params.id));
@@ -483,7 +550,7 @@ app.delete('/api/utilisateurs/:id', async (req, res) => {
 });
 
 // Dashboard stats
-app.get('/api/stats', async (req, res) => {
+app.get('/api/stats', authenticateToken, async (req, res) => {
   try {
     const stats = await db.getStats();
     res.json(stats);
@@ -493,7 +560,7 @@ app.get('/api/stats', async (req, res) => {
 });
 
 // Database reset and reload
-app.post('/api/database/reset', async (req, res) => {
+app.post('/api/database/reset', authenticateToken, async (req, res) => {
   try {
     await db.resetDatabase();
     res.json({ message: 'Base de données réinitialisée avec succès.' });
@@ -502,7 +569,7 @@ app.post('/api/database/reset', async (req, res) => {
   }
 });
 
-app.post('/api/database/reload', async (req, res) => {
+app.post('/api/database/reload', authenticateToken, async (req, res) => {
   try {
     await db.reloadDatabase();
     res.json({ message: 'Base de données rechargée depuis MySQL avec succès.' });
