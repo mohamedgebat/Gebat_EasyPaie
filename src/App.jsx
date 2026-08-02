@@ -31,7 +31,7 @@ function ProtectedRoute({ children }) {
   }
   
   if (currentUser?.must_change_password) {
-    return <ForcePasswordChange onComplete={() => window.location.reload()} onLogout={logout} />;
+    return <ForcePasswordChange onComplete={logout} onLogout={logout} />;
   }
   
   return children;

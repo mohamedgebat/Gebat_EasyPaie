@@ -53,9 +53,15 @@ export default function ForcePasswordChange({ onComplete, onLogout }) {
         <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
           <ShieldCheck className="mx-auto h-16 w-16 text-emerald-500 mb-4" />
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Mot de passe sécurisé !</h2>
-          <p className="mt-2 text-slate-600">
-            Votre compte est maintenant sécurisé. Vous allez être redirigé vers la page de connexion...
+          <p className="mt-2 text-slate-600 mb-6">
+            Votre compte est maintenant sécurisé. Vous devez vous reconnecter avec votre nouveau mot de passe.
           </p>
+          <button
+            onClick={onComplete}
+            className="inline-flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            Aller à la page de connexion
+          </button>
         </div>
       </div>
     );
