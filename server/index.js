@@ -65,7 +65,7 @@ const requireRole = (roles) => {
 
 // Login Route
 app.post('/api/login', [
-  body('username').trim().notEmpty().withMessage('Nom d\\'utilisateur requis'),
+  body('username').trim().notEmpty().withMessage("Nom d'utilisateur requis"),
   body('password').notEmpty().withMessage('Mot de passe requis')
 ], async (req, res) => {
   const errors = validationResult(req);
