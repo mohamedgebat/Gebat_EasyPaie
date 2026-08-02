@@ -1,11 +1,19 @@
 import mysql from 'mysql2/promise';
 import bcrypt from 'bcryptjs';
 
+const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
+requiredEnvVars.forEach(envVar => {
+  if (!process.env[envVar] && !process.env[`MYSQL${envVar.replace('DB_', '')}`]) {
+    console.error(`Erreur Critique : Variable d'environnement ${envVar} manquante.`);
+    process.exit(1);
+  }
+});
+
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || process.env.MYSQLHOST || 'localhost',
-  user: process.env.DB_USER || process.env.MYSQLUSER || 'root',
-  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD || '',
-  database: process.env.DB_NAME || process.env.MYSQL_DATABASE || 'gebat_easypaie',
+  host: process.env.DB_HOST || process.env.MYSQLHOST,
+  user: process.env.DB_USER || process.env.MYSQLUSER,
+  password: process.env.DB_PASSWORD || process.env.MYSQLPASSWORD,
+  database: process.env.DB_NAME || process.env.MYSQL_DATABASE,
   port: Number(process.env.DB_PORT) || Number(process.env.MYSQLPORT) || 3306,
   waitForConnections: true,
   connectionLimit: 10,
@@ -20,6 +28,17 @@ function getCurrentTimestamp() {
 
 // Database interface connected to MySQL
 const dbInterface = {
+  // Audit Logging
+  logAudit: async (userId, username, action, details, ipAddress) => {
+    try {
+      await pool.query(
+        `INSERT INTO audit_logs (user_id, username, action, details, ip_address) VALUES (?, ?, ?, ?, ?)`,
+        [userId || null, username || 'System', action, JSON.stringify(details || {}), ipAddress || 'unknown']
+      );
+    } catch (e) {
+      console.error('Erreur lors de l\'enregistrement de l\'audit:', e);
+    }
+  },
   // Ouvriers
   getOuvriers: async () => {
     const [rows] = await pool.query('SELECT * FROM ouvriers ORDER BY id DESC');
@@ -426,6 +445,7 @@ const dbInterface = {
     const titre = data.titre || '';
     const role = data.role || 'Gestionnaire Paie';
     const statut = data.statut || 'actif';
+    const must_change_password = true; // Nouveau compte = changement de MDP obligatoire
     const created_at = getCurrentTimestamp();
     const updated_at = created_at;
 
@@ -435,12 +455,12 @@ const dbInterface = {
     }
 
     const [res] = await pool.query(
-      `INSERT INTO utilisateurs (username, email, password, titre, role, statut, created_at, updated_at) 
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [username, email, password, titre, role, statut, created_at, updated_at]
+      `INSERT INTO utilisateurs (username, email, password, titre, role, statut, must_change_password, created_at, updated_at) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [username, email, password, titre, role, statut, must_change_password, created_at, updated_at]
     );
 
-    return { id: res.insertId, username, email, titre, role, statut, created_at, updated_at };
+    return { id: res.insertId, username, email, titre, role, statut, must_change_password, created_at, updated_at };
   },
 
   updateUtilisateur: async (id, data) => {
@@ -451,7 +471,7 @@ const dbInterface = {
     const fields = [];
     const values = [];
 
-    const allowed = ['username', 'email', 'password', 'titre', 'role', 'statut'];
+    const allowed = ['username', 'email', 'password', 'titre', 'role', 'statut', 'must_change_password'];
     for (const key of allowed) {
       if (data[key] !== undefined) {
         let val = data[key];

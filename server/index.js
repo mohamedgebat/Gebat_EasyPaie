@@ -1,4 +1,7 @@
+import 'dotenv/config';
 import express from 'express';
+import morgan from 'morgan';
+import { body, validationResult } from 'express-validator';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -6,13 +9,18 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import db from './database.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'gebat_super_secret_key_2026';
+if (!process.env.JWT_SECRET) {
+  console.error('Erreur Critique : JWT_SECRET manquant dans .env');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(helmet());
+app.use(morgan('combined'));
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 200, // 200 requests per windowMs
@@ -35,6 +43,12 @@ const authenticateToken = (req, res, next) => {
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
     if (err) return res.status(403).json({ error: 'Token invalide ou expiré.' });
+    
+    // Si l'utilisateur doit changer son mot de passe, on bloque toutes les requêtes SAUF /api/change-password
+    if (user.must_change_password && req.path !== '/api/change-password') {
+      return res.status(403).json({ error: 'Changement de mot de passe requis.', must_change_password: true });
+    }
+    
     req.user = user;
     next();
   });
@@ -155,6 +169,7 @@ app.get('/api/ouvriers/:id', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/ouvriers', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_OUVRIERS', { params: req.params, body: req.body }, req.ip);
   try {
     const { matricule, nom, prenom, telephone, site, qualification, operateur, numero_mobile_money, date_entree, statut } = req.body;
     const result = await db.addOuvrier({ matricule, nom, prenom, telephone, site, qualification, operateur, numero_mobile_money, date_entree, statut });
@@ -165,6 +180,7 @@ app.post('/api/ouvriers', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/ouvriers/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_OUVRIERS', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.updateOuvrier(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -174,6 +190,7 @@ app.put('/api/ouvriers/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/ouvriers/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_OUVRIERS', { params: req.params, body: req.body }, req.ip);
   try {
     await db.deleteOuvrier(parseInt(req.params.id));
     res.json({ message: 'Ouvrier deleted' });
@@ -193,6 +210,7 @@ app.get('/api/epi-fournis', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/epi-fournis', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_EPI-FOURNIS', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.addEpiFourni(req.body);
     res.json(result);
@@ -202,6 +220,7 @@ app.post('/api/epi-fournis', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/epi-fournis/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_EPI-FOURNIS', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.deleteEpiFourni(parseInt(req.params.id));
     res.json({ success: result });
@@ -221,6 +240,7 @@ app.get('/api/pointages', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/pointages', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_POINTAGES', { params: req.params, body: req.body }, req.ip);
   try {
     const { ouvrier_id, date, salaire_brut, date_debut, date_fin, semaine, site } = req.body;
     const result = await db.addPointage({ 
@@ -239,6 +259,7 @@ app.post('/api/pointages', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/pointages/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_POINTAGES', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.updatePointage(parseInt(req.params.id), req.body);
     res.json(result);
@@ -248,6 +269,7 @@ app.put('/api/pointages/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/pointages/batch', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_POINTAGES', { params: req.params, body: req.body }, req.ip);
   try {
     const { semaine, site } = req.query;
     if (!semaine) {
@@ -271,6 +293,7 @@ app.get('/api/epi-programmes', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/epi-programmes', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_EPI-PROGRAMMES', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.addEpiProgramme(req.body);
     res.json(result);
@@ -280,6 +303,7 @@ app.post('/api/epi-programmes', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/epi-programmes/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_EPI-PROGRAMMES', { params: req.params, body: req.body }, req.ip);
   try {
     await db.deleteEpiProgramme(parseInt(req.params.id));
     res.json({ message: 'Programme EPI supprimé' });
@@ -308,6 +332,7 @@ app.get('/api/ponctions/ouvrier/:ouvrierId', authenticateToken, async (req, res)
 });
 
 app.post('/api/ponctions', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_PONCTIONS', { params: req.params, body: req.body }, req.ip);
   try {
     const { ouvrier_id, date, montant, motif } = req.body;
     const result = await db.addPonction({ ouvrier_id: parseInt(ouvrier_id), date, montant, motif });
@@ -318,6 +343,7 @@ app.post('/api/ponctions', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/ponctions/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_PONCTIONS', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.updatePonction(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -327,6 +353,7 @@ app.put('/api/ponctions/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/ponctions/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_PONCTIONS', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.deletePonction(parseInt(req.params.id));
     res.json({ success: result });
@@ -355,6 +382,7 @@ app.get('/api/loyers/ouvrier/:ouvrierId', authenticateToken, async (req, res) =>
 });
 
 app.post('/api/loyers', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_LOYERS', { params: req.params, body: req.body }, req.ip);
   try {
     const { ouvrier_id, site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
     const result = await db.addLoyer({ ouvrier_id: parseInt(ouvrier_id), site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
@@ -365,6 +393,7 @@ app.post('/api/loyers', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/loyers/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_LOYERS', { params: req.params, body: req.body }, req.ip);
   try {
     const { site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
     await db.updateLoyer(parseInt(req.params.id), { site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
@@ -375,6 +404,7 @@ app.put('/api/loyers/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/loyers/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_LOYERS', { params: req.params, body: req.body }, req.ip);
   try {
     await db.deleteLoyer(parseInt(req.params.id));
     res.json({ message: 'Loyer deleted' });
@@ -403,6 +433,7 @@ app.get('/api/paiements-loyer/ouvrier/:ouvrierId', authenticateToken, async (req
 });
 
 app.post('/api/paiements-loyer', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_PAIEMENTS-LOYER', { params: req.params, body: req.body }, req.ip);
   try {
     const { ouvrier_id, mois, annee, montant } = req.body;
     const result = await db.addPaiementLoyer({ ouvrier_id: parseInt(ouvrier_id), mois, annee: parseInt(annee), montant });
@@ -445,6 +476,7 @@ app.get('/api/paies/semaine/:semaine', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/paies', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_PAIES', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.addPaie({
       ...req.body,
@@ -457,6 +489,7 @@ app.post('/api/paies', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/paies/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_PAIES', { params: req.params, body: req.body }, req.ip);
   try {
     const result = await db.updatePaie(parseInt(req.params.id), req.body);
     res.json(result || { id: req.params.id, ...req.body });
@@ -466,6 +499,7 @@ app.put('/api/paies/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/paies/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_PAIES', { params: req.params, body: req.body }, req.ip);
   try {
     await db.deletePaie(parseInt(req.params.id));
     res.json({ message: 'Paie deleted' });
@@ -475,6 +509,7 @@ app.delete('/api/paies/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/paies/semaine/:semaine', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_PAIES', { params: req.params, body: req.body }, req.ip);
   try {
     const { site } = req.query;
     if (site) {
@@ -512,6 +547,7 @@ app.get('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/utilisateurs', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_UTILISATEURS', { params: req.params, body: req.body }, req.ip);
   try {
     const { username, email, password, titre, role, statut } = req.body;
     const result = await db.addUtilisateur({ username, email, password, titre, role, statut });
@@ -522,6 +558,7 @@ app.post('/api/utilisateurs', authenticateToken, async (req, res) => {
 });
 
 app.put('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'PUT_UTILISATEURS', { params: req.params, body: req.body }, req.ip);
   try {
     // Protection : empêche la désactivation du compte admin
     const existing = await db.getUtilisateur(parseInt(req.params.id));
@@ -536,6 +573,7 @@ app.put('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
 });
 
 app.delete('/api/utilisateurs/:id', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'DELETE_UTILISATEURS', { params: req.params, body: req.body }, req.ip);
   try {
     // Protection : empêche la suppression du compte admin
     const existing = await db.getUtilisateur(parseInt(req.params.id));
@@ -561,6 +599,7 @@ app.get('/api/stats', authenticateToken, async (req, res) => {
 
 // Database reset and reload
 app.post('/api/database/reset', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_DATABASE', { params: req.params, body: req.body }, req.ip);
   try {
     await db.resetDatabase();
     res.json({ message: 'Base de données réinitialisée avec succès.' });
@@ -570,6 +609,7 @@ app.post('/api/database/reset', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/database/reload', authenticateToken, async (req, res) => {
+    db.logAudit(req.user.id, req.user.username, 'POST_DATABASE', { params: req.params, body: req.body }, req.ip);
   try {
     await db.reloadDatabase();
     res.json({ message: 'Base de données rechargée depuis MySQL avec succès.' });

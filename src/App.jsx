@@ -13,9 +13,10 @@ import Historique from './pages/Historique';
 import Rapports from './pages/Rapports';
 import Parametres from './pages/Parametres';
 import Conversion from './pages/Conversion';
+import ForcePasswordChange from './components/ForcePasswordChange';
 
 function ProtectedRoute({ children }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, currentUser, logout } = useAuth();
   
   if (isLoading) {
     return (
@@ -27,6 +28,10 @@ function ProtectedRoute({ children }) {
   
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  
+  if (currentUser?.must_change_password) {
+    return <ForcePasswordChange onComplete={() => window.location.reload()} onLogout={logout} />;
   }
   
   return children;
