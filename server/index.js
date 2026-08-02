@@ -64,7 +64,13 @@ const requireRole = (roles) => {
 };
 
 // Login Route
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', [
+  body('username').trim().notEmpty().withMessage('Nom d\\'utilisateur requis'),
+  body('password').notEmpty().withMessage('Mot de passe requis')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
   try {
     const { username, password } = req.body;
     const users = await db.getUtilisateurs();
@@ -75,8 +81,10 @@ app.post('/api/login', async (req, res) => {
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) return res.status(401).json({ error: 'Identifiants invalides' });
 
+    db.logAudit(user.id, user.username, 'LOGIN', { ip: req.ip }, req.ip);
+
     const token = jwt.sign(
-      { id: user.id, role: user.role, username: user.username }, 
+      { id: user.id, role: user.role, username: user.username, must_change_password: !!user.must_change_password }, 
       JWT_SECRET, 
       { expiresIn: '12h' }
     );
@@ -84,6 +92,40 @@ app.post('/api/login', async (req, res) => {
     const { password: _, ...userWithoutPassword } = user;
     res.json({ token, user: userWithoutPassword });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Change Password Route
+app.post('/api/change-password', authenticateToken, [
+  body('newPassword').isLength({ min: 6 }).withMessage('Le mot de passe doit faire au moins 6 caractères')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  try {
+    const userId = req.user.id;
+    const { newPassword } = req.body;
+    
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+    
+    // Accès direct à la DB pour cet update spécifique
+    const pool = db.pool || db.default.pool; // Handle module export variation if needed
+    if (!pool) {
+      // Import the original pool since db doesn't expose pool directly in standard dbInterface
+      // Wait, let's just use dbInterface.updateUtilisateur if possible, or we might need to expose pool.
+      // Wait, updateUtilisateur in database.js expects an object and uses allowed fields. 
+      // Fortunately we just added 'must_change_password' to allowed fields in updateUtilisateur!
+    }
+    
+    await db.updateUtilisateur(userId, { password: newPassword, must_change_password: false });
+    
+    db.logAudit(userId, req.user.username, 'CHANGE_PASSWORD', {}, req.ip);
+    
+    res.json({ success: true, message: 'Mot de passe mis à jour avec succès' });
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
