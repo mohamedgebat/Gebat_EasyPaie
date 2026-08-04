@@ -3,7 +3,9 @@ import bcrypt from 'bcryptjs';
 
 const requiredEnvVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
 requiredEnvVars.forEach(envVar => {
-  if (!process.env[envVar] && !process.env[`MYSQL${envVar.replace('DB_', '')}`]) {
+  const val = process.env[envVar];
+  const fallbackVal = process.env[`MYSQL${envVar.replace('DB_', '')}`];
+  if (val === undefined && fallbackVal === undefined) {
     console.error(`Erreur Critique : Variable d'environnement ${envVar} manquante.`);
     process.exit(1);
   }
