@@ -297,8 +297,6 @@ const dbInterface = {
     const fields = [];
     const values = [];
 
-    if (data.site !== undefined) { fields.push('site = ?'); values.push(data.site); }
-    if (data.qualification !== undefined) { fields.push('qualification = ?'); values.push(data.qualification); }
     if (data.montant_mensuel !== undefined) { fields.push('montant_mensuel = ?'); values.push(Number(data.montant_mensuel) || 0); }
     if (data.nombre_tranches !== undefined) { fields.push('nombre_tranches = ?'); values.push(Number(data.nombre_tranches) || 1); }
     if (data.mois !== undefined) { fields.push('mois = ?'); values.push(data.mois); }
