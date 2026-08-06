@@ -460,21 +460,31 @@ export default function Conversion() {
             const lastPunch = punches[punches.length - 1];
             if (lastPunch) {
               const [hh, mm] = lastPunch.split(':').map(Number);
-              // Overtime starts beyond normal shift (17:00 / 18:00)
-              if (hh >= 18) {
-                const elapsedMins = (hh - 18) * 60 + mm;
-                if (elapsedMins >= 0) {
-                  const elapsedHours = (elapsedMins + 60) / 60; // elapsed hours after 17:00
+              const [overStartH, overStartM] = (nsInfo.overStart || '18:00').split(':').map(Number);
+              const [endShiftH, endShiftM] = (nsInfo.end2 || '17:00').split(':').map(Number);
+              
+              let punchMins = hh * 60 + mm;
+              const overStartMins = overStartH * 60 + overStartM;
+              const endShiftMins = endShiftH * 60 + endShiftM;
+
+              // Gestion des heures de nuit (ex: sortie à 01:00 du matin)
+              if (punchMins < overStartMins && hh < 12) {
+                punchMins += 24 * 60;
+              }
+
+              // Le comptage des heures supplémentaires commence à partir de overStart (ex: 18:00)
+              if (punchMins >= overStartMins) {
+                // Mais le temps est calculé à partir de la fin du shift (ex: 17:00)
+                const elapsedMins = punchMins - endShiftMins;
+                if (elapsedMins > 0) {
+                  const elapsedHours = elapsedMins / 60;
                   
                   if (otCalculationMode === 'rule_2h') {
-                    // Rule: 1 heure supplémentaire est considérée lorsqu'il dépasse 2 heures du temps
-                    // E.g. for every 2 hours of elapsed extra time, 1 hour HS is credited
                     if (elapsedHours >= otThresholdHours) {
                       otHoursToday = Math.floor(elapsedHours / otThresholdHours) || 1;
                       otAmountToday = Number((otHoursToday * otRate15).toFixed(2));
                     }
                   } else {
-                    // Proportional +15% calculation based on exact exit punch
                     otHoursToday = Number(elapsedHours.toFixed(2));
                     otAmountToday = Number((otHoursToday * otRate15).toFixed(2));
                   }
@@ -589,10 +599,21 @@ export default function Conversion() {
         if (day.punches && day.punches.length > 0) {
           const lastPunch = day.punches[day.punches.length - 1];
           const [hh, mm] = lastPunch.split(':').map(Number);
-          if (hh >= 18) {
-            const elapsedMins = (hh - 18) * 60 + mm;
-            if (elapsedMins >= 0) {
-              const elapsedHours = (elapsedMins + 60) / 60;
+          const [overStartH, overStartM] = (normalShiftData?.overStart || '18:00').split(':').map(Number);
+          const [endShiftH, endShiftM] = (normalShiftData?.end2 || '17:00').split(':').map(Number);
+          
+          let punchMins = hh * 60 + mm;
+          const overStartMins = overStartH * 60 + overStartM;
+          const endShiftMins = endShiftH * 60 + endShiftM;
+
+          if (punchMins < overStartMins && hh < 12) {
+            punchMins += 24 * 60;
+          }
+
+          if (punchMins >= overStartMins) {
+            const elapsedMins = punchMins - endShiftMins;
+            if (elapsedMins > 0) {
+              const elapsedHours = elapsedMins / 60;
               if (otCalculationMode === 'rule_2h') {
                 if (elapsedHours >= Number(otThresholdHours)) {
                   otHoursToday = Math.floor(elapsedHours / Number(otThresholdHours)) || 1;
