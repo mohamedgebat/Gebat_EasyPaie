@@ -284,11 +284,12 @@ app.get('/api/pointages', authenticateToken, async (req, res) => {
 app.post('/api/pointages', authenticateToken, async (req, res) => {
     db.logAudit(req.user.id, req.user.username, 'POST_POINTAGES', { params: req.params, body: req.body }, req.ip);
   try {
-    const { ouvrier_id, date, salaire_brut, date_debut, date_fin, semaine, site } = req.body;
+    const { ouvrier_id, date, salaire_brut, heures_sup, date_debut, date_fin, semaine, site } = req.body;
     const result = await db.addPointage({ 
       ouvrier_id: parseInt(ouvrier_id), 
       date, 
       salaire_brut: Number(salaire_brut) || 0,
+      heures_sup: Number(heures_sup) || 0,
       date_debut: date_debut || null,
       date_fin: date_fin || null,
       semaine: semaine || '',

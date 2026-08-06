@@ -131,12 +131,13 @@ const dbInterface = {
   addPointage: async (data) => {
     const created_at = getCurrentTimestamp();
     const [res] = await pool.query(
-      `INSERT INTO pointages (ouvrier_id, date, salaire_brut, date_debut, date_fin, semaine, site, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO pointages (ouvrier_id, date, salaire_brut, heures_sup, date_debut, date_fin, semaine, site, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.ouvrier_id,
         data.date || null,
         Number(data.salaire_brut) || 0,
+        Number(data.heures_sup) || 0,
         data.date_debut || null,
         data.date_fin || null,
         data.semaine || '',
@@ -149,8 +150,8 @@ const dbInterface = {
 
   updatePointage: async (id, data) => {
     await pool.query(
-      `UPDATE pointages SET salaire_brut = ?, site = ? WHERE id = ?`,
-      [Number(data.salaire_brut) || 0, data.site || '', id]
+      `UPDATE pointages SET salaire_brut = ?, heures_sup = ?, site = ? WHERE id = ?`,
+      [Number(data.salaire_brut) || 0, Number(data.heures_sup) || 0, data.site || '', id]
     );
     return { id, ...data };
   },
@@ -365,8 +366,8 @@ const dbInterface = {
   addPaie: async (data) => {
     const created_at = getCurrentTimestamp();
     const [res] = await pool.query(
-      `INSERT INTO paies (ouvrier_id, pointage_id, date_pointage, date, semaine, date_debut, date_fin, salaire_brut, ponction, loyer, epi_remboursement, epi_deduction, total_cotisations_epi, epi_limit, epi_departure_option, net_a_payer, paye, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO paies (ouvrier_id, pointage_id, date_pointage, date, semaine, date_debut, date_fin, salaire_brut, heures_sup, ponction, loyer, epi_remboursement, epi_deduction, total_cotisations_epi, epi_limit, epi_departure_option, net_a_payer, paye, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         data.ouvrier_id,
         data.pointage_id || null,
@@ -376,6 +377,7 @@ const dbInterface = {
         data.date_debut || null,
         data.date_fin || null,
         Number(data.salaire_brut) || 0,
+        Number(data.heures_sup) || 0,
         Number(data.ponction) || 0,
         Number(data.loyer) || 0,
         Number(data.epi_remboursement) || 0,
@@ -395,7 +397,7 @@ const dbInterface = {
     const fields = [];
     const values = [];
 
-    const keys = ['paye', 'net_a_payer', 'ponction', 'loyer', 'salaire_brut'];
+    const keys = ['paye', 'net_a_payer', 'ponction', 'loyer', 'salaire_brut', 'heures_sup'];
     for (const k of keys) {
       if (data[k] !== undefined) {
         fields.push(`\`${k}\` = ?`);

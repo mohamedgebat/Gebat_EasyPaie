@@ -4,7 +4,8 @@
  * - En production (Vercel) : utilise la variable VITE_API_URL définie sur Vercel
  *   pointant vers le backend Railway
  */
-export const API_BASE = import.meta.env.VITE_API_URL || '';
+export const API_BASE = import.meta.env.VITE_API_URL || 
+  (window.location.hostname === 'localhost' ? 'http://localhost:5000' : 'https://gebateasypaie-production.up.railway.app');
 
 /**
  * Helper fetch qui préfixe automatiquement l'URL de base de l'API.

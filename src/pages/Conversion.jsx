@@ -933,7 +933,7 @@ export default function Conversion() {
           const day = w.dailyAttendance[d];
           row.push(day ? day.jrTravaille : 0, day ? day.mtJournalier : 0);
         }
-        row.push(w.totalWorkDays, w.netPay, 0, w.netPay); // w.netPay = (Salaire habituel + Montant des heures sup)
+        row.push(w.totalWorkDays, w.totalBasePay, 0, w.totalBasePay); // Le montant ne contient QUE le salaire de base (les HS sont dans l'onglet HEURES SUP)
         deptRows.push(row);
       });
 

@@ -623,9 +623,10 @@ export default function ImportPointage() {
         if (workerMap.has(workerName)) {
           const existing = workerMap.get(workerName);
           if (isHeuresSup) {
-            // L'ajout du montant des heures supplémentaires dans NET A PAYER n'est plus nécessaire ici 
-            // car le fichier Excel généré intègre déjà les heures sup dans l'onglet du métier.
             existing['Qualification'] = existing['Qualification'] + ' + HEURES SUP';
+            const valStr = row['NET A PAYER'] || row['Net à payer'] || row['Net a payer'] || row['TOTAL'] || 0;
+            const num = Number(String(valStr).replace(/[^0-9.-]+/g, ""));
+            existing['HEURES_SUP_AMOUNT'] = isNaN(num) ? 0 : num;
           }
         } else {
           workerMap.set(workerName, { ...row, 'NOM ET PRENOMS': workerName });
@@ -954,12 +955,15 @@ export default function ImportPointage() {
           const semaineStr = extractedDates.semaine || '';
           const existingPointage = dbPointages.find(p => p.ouvrier_id === worker.id && p.semaine === semaineStr);
 
+          const hsAmount = Number(row['HEURES_SUP_AMOUNT']) || 0;
+
           if (existingPointage) {
             await apiFetch(`/api/pointages/${existingPointage.id}`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 salaire_brut: finalBrut,
+                heures_sup: hsAmount,
                 site: detectedSite || worker.site || 'SONGON'
               }),
             });
@@ -974,6 +978,7 @@ export default function ImportPointage() {
                 date_fin: extractedDates.fin || null,
                 semaine: semaineStr,
                 salaire_brut: finalBrut,
+                heures_sup: hsAmount,
                 site: detectedSite || worker.site || 'SONGON'
               }),
             });

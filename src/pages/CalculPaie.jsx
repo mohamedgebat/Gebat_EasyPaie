@@ -609,9 +609,13 @@ export default function CalculPaie() {
         }
       }
       
+      const heuresSup = (currentWeekPointage && currentWeekPointage.heures_sup !== undefined) 
+        ? currentWeekPointage.heures_sup 
+        : ((isDejaPaye && existingPaie.heures_sup !== undefined) ? existingPaie.heures_sup : 0);
+
       const netAPayer = (isPaidLocked && (!currentWeekPointage || currentWeekPointage.salaire_brut === undefined) && existingPaie.net_a_payer !== undefined)
         ? Number(existingPaie.net_a_payer) 
-        : (Number(salaireBrut) || 0) - (Number(ponctionAmount) || 0) - (Number(loyerAmount) || 0) + (Number(epiRemboursement) || 0) - (Number(epiDeduction) || 0);
+        : (Number(salaireBrut) || 0) + (Number(heuresSup) || 0) - (Number(ponctionAmount) || 0) - (Number(loyerAmount) || 0) + (Number(epiRemboursement) || 0) - (Number(epiDeduction) || 0);
 
       return {
         ouvrier_id: ouvrier.id,
@@ -630,6 +634,7 @@ export default function CalculPaie() {
         date_debut: dateDebut || null,
         date_fin: dateFin || null,
         salaire_brut: salaireBrut,
+        heures_sup: heuresSup,
         ponction: ponctionAmount,
         total_cotisations_epi: (Number(calcPonctionResult.totalPaid) || 0) + (calcPonctionResult.has_existing ? 0 : Number(ponctionAmount || 0)),
         epi_limit: Number(calcPonctionResult.epiLimit) || 0,
@@ -1816,6 +1821,7 @@ export default function CalculPaie() {
                     <th className="py-4 px-3 text-center">Date</th>
                     <th className="py-4 px-3 text-center">Période (Intervalle)</th>
                     <th className="py-4 px-3 text-right">Salaire Brut</th>
+                    <th className="py-4 px-3 text-right text-amber-700 bg-amber-50/50">Heures Sup</th>
                     <th className="py-4 px-3 text-right" title="Montant total des cotisations / ponctions EPI accumulées">Caution EPI (Cumul)</th>
                     <th className="py-4 px-3 text-right">Loyer</th>
                     <th className="py-4 px-3 text-right">Remb. EPI</th>
@@ -1828,7 +1834,7 @@ export default function CalculPaie() {
                 <tbody className="divide-y divide-gray-100">
                   {displayedPaie.length === 0 ? (
                     <tr>
-                      <td colSpan="13" className="py-12 text-center text-gray-400 font-bold text-sm">
+                      <td colSpan="14" className="py-12 text-center text-gray-400 font-bold text-sm">
                         Aucun paiement trouvé pour le filtre sélectionné ({statutFilter === 'en_attente' ? 'Aucun paiement en attente / non effectué' : 'Aucune donnée'}).
                       </td>
                     </tr>
@@ -1857,6 +1863,9 @@ export default function CalculPaie() {
                       </td>
                       <td className="py-3.5 px-3 text-right font-mono font-bold text-gray-700">
                         {formatCurrency(paie.salaire_brut)}
+                      </td>
+                      <td className="py-3.5 px-3 text-right font-mono font-black text-amber-700 bg-amber-50/30">
+                        {paie.heures_sup > 0 ? `+${formatCurrency(paie.heures_sup)}` : <span className="text-gray-400 font-normal">-</span>}
                       </td>
                       <td className="py-3.5 px-3 text-right font-mono font-bold">
                         {paie.total_cotisations_epi > 0 ? (

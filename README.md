@@ -303,3 +303,6 @@ Tu peux maintenant faire les vérifications suivantes.
 Ouvre dans ton navigateur :
 
 https://gebateasypaie-production.up.railway.app/api/health
+
+identifiant: admin
+mot de passe : admin123@
