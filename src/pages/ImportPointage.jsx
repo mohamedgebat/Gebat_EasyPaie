@@ -623,7 +623,8 @@ export default function ImportPointage() {
         if (workerMap.has(workerName)) {
           const existing = workerMap.get(workerName);
           if (isHeuresSup) {
-            existing['NET A PAYER'] = (Number(existing['NET A PAYER']) || 0) + (Number(row['NET A PAYER']) || 0);
+            // L'ajout du montant des heures supplémentaires dans NET A PAYER n'est plus nécessaire ici 
+            // car le fichier Excel généré intègre déjà les heures sup dans l'onglet du métier.
             existing['Qualification'] = existing['Qualification'] + ' + HEURES SUP';
           }
         } else {

@@ -817,7 +817,7 @@ export default function Conversion() {
           const day = w.dailyAttendance[d];
           if (day) {
             dayEffectif += day.jrTravaille;
-            dayAmount += day.mtJournalier;
+            dayAmount += (day.mtJournalier + day.otAmount); // Additionne Salaire habituel + Montant des heures sup
           }
         });
         rowData.push(dayEffectif, dayAmount);
@@ -831,7 +831,7 @@ export default function Conversion() {
     // Add HEURES SUPPLEMENTAIRES row
     const firstHSRate = overtimeWorkers[0] ? Math.round((overtimeWorkers[0].baseRate / (Number(dailyHours) || 8)) * 1.15) : Math.round((Number(dailyWage) / (Number(dailyHours) || 8)) * 1.15);
     const isHSUniform = overtimeWorkers.every(w => Math.round((w.baseRate / (Number(dailyHours) || 8)) * 1.15) === firstHSRate);
-    const hsRow = [deptIdx++, 'HEURES SUPPLEMENTAIRES', isHSUniform ? firstHSRate : "Taux Variables"];
+    const hsRow = [deptIdx++, '(DONT HEURES SUPPLEMENTAIRES)', isHSUniform ? firstHSRate : "Taux Variables"];
     let totalHSGross = 0;
     for (let d = 0; d < 7; d++) {
       let dayHSHours = 0;
@@ -912,7 +912,7 @@ export default function Conversion() {
           const day = w.dailyAttendance[d];
           row.push(day ? day.jrTravaille : 0, day ? day.mtJournalier : 0);
         }
-        row.push(w.totalWorkDays, w.totalBasePay, 0, w.totalBasePay);
+        row.push(w.totalWorkDays, w.netPay, 0, w.netPay); // w.netPay = (Salaire habituel + Montant des heures sup)
         deptRows.push(row);
       });
 
@@ -1607,7 +1607,7 @@ export default function Conversion() {
                               const day = w.dailyAttendance[d];
                               if (day) {
                                 dayEffectif += day.jrTravaille;
-                                dayAmount += day.mtJournalier;
+                                dayAmount += (day.mtJournalier + day.otAmount); // Additionne Salaire habituel + Montant des heures sup
                               }
                             });
                             deptTotalGross += dayAmount;
@@ -1641,7 +1641,7 @@ export default function Conversion() {
                     <td className="py-3.5 px-3 border-r border-amber-200">#</td>
                     <td className="py-3.5 px-4 border-r border-amber-200 flex items-center gap-2">
                       <Clock size={16} className="text-amber-600" />
-                      HEURES SUPPLEMENTAIRES
+                      (DONT HEURES SUPPLEMENTAIRES)
                     </td>
                     <td className="py-3.5 px-3 text-right border-r border-amber-200 text-amber-800 font-semibold">
                       {(() => {
