@@ -437,8 +437,8 @@ app.post('/api/loyers', authenticateToken, async (req, res) => {
 app.put('/api/loyers/:id', authenticateToken, async (req, res) => {
     db.logAudit(req.user.id, req.user.username, 'PUT_LOYERS', { params: req.params, body: req.body }, req.ip);
   try {
-    const { site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
-    await db.updateLoyer(parseInt(req.params.id), { site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
+    const { ouvrier_id, site, qualification, montant_mensuel, mois, annee, nombre_tranches, type } = req.body;
+    await db.updateLoyer(parseInt(req.params.id), { ouvrier_id, site, qualification, montant_mensuel, mois, annee: parseInt(annee), nombre_tranches, type });
     res.json({ id: req.params.id, ...req.body });
   } catch (err) {
     res.status(500).json({ error: err.message });
