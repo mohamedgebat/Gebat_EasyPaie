@@ -862,7 +862,7 @@ export default function CalculPaie() {
     const emptyRow = [];
     const headerRow = [
       'Nom', 'Prénom', 'Qualification', 'Site', 'Date Pointage', 'Période (Intervalle)', 'Statut Virement',
-      'Salaire Brut (FCFA)', 'Ponctions EPI (Total Cotisé)', 'Plafond EPI',
+      'Salaire Brut (FCFA)', 'Heures Sup (FCFA)', 'Ponctions EPI (Total Cotisé)', 'Plafond EPI',
       'Loyer (FCFA)', 'Remboursement EPI', 'Déd. EPI (FCFA)', 'Détail Type Déduction',
       'Net à Payer (FCFA)', 'Opérateur MM', 'Numéro Transfert MM'
     ];
@@ -876,6 +876,7 @@ export default function CalculPaie() {
       getIntervaleSemaine(paie.semaine, paie.date_pointage || paie.date, paie.date_debut, paie.date_fin),
       paie.deja_paye ? 'Déjà Réglé & Enregistré' : (paie.paye ? 'Prêt à enregistrer' : 'En attente / Non effectué'),
       Number(paie.salaire_brut) || 0,
+      Number(paie.heures_sup) || 0,
       Number(paie.total_cotisations_epi) || 0,
       Number(paie.epi_limit) || 0,
       Number(paie.loyer) || 0,
@@ -888,6 +889,7 @@ export default function CalculPaie() {
     ]);
 
     const totBrut = displayedPaie.reduce((sum, p) => sum + (Number(p.salaire_brut) || 0), 0);
+    const totHS = displayedPaie.reduce((sum, p) => sum + (Number(p.heures_sup) || 0), 0);
     const totCotise = displayedPaie.reduce((sum, p) => sum + (Number(p.total_cotisations_epi) || 0), 0);
     const totPlafond = displayedPaie.reduce((sum, p) => sum + (Number(p.epi_limit) || 0), 0);
     const totLoyer = displayedPaie.reduce((sum, p) => sum + (Number(p.loyer) || 0), 0);
@@ -897,7 +899,7 @@ export default function CalculPaie() {
 
     const totalRow = [
       'TOTAL GÉNÉRAL', '', '', '', '', '', '',
-      totBrut, totCotise, totPlafond,
+      totBrut, totHS, totCotise, totPlafond,
       totLoyer, totRemb, totDed, '',
       totNet, '', '', ''
     ];
@@ -906,13 +908,13 @@ export default function CalculPaie() {
     const ws = XLSX.utils.aoa_to_sheet(aoa);
 
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 17 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 17 } }
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 18 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 18 } }
     ];
 
     ws['!cols'] = [
       { wch: 18 }, { wch: 18 }, { wch: 22 }, { wch: 16 }, { wch: 16 }, { wch: 26 }, { wch: 22 },
-      { wch: 20 }, { wch: 26 }, { wch: 16 }, { wch: 16 },
+      { wch: 20 }, { wch: 18 }, { wch: 26 }, { wch: 16 }, { wch: 16 },
       { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 20 },
       { wch: 16 }, { wch: 22 }, { wch: 18 }
     ];
@@ -942,13 +944,13 @@ export default function CalculPaie() {
       };
     }
 
-    for (let c = 0; c <= 17; c++) {
+    for (let c = 0; c <= 18; c++) {
       const cellAddress = XLSX.utils.encode_cell({ r: 3, c: c });
       if (ws[cellAddress]) {
         ws[cellAddress].s = {
           font: { name: 'Arial', sz: 10, bold: true, color: { rgb: 'FFFFFF' } },
           fill: { fgColor: { rgb: '1E293B' } },
-          alignment: { horizontal: (c >= 7 && c <= 12) || c === 14 ? 'right' : 'center', vertical: 'center' },
+          alignment: { horizontal: (c >= 7 && c <= 13) || c === 15 ? 'right' : 'center', vertical: 'center' },
           border: {
             top: { style: 'medium', color: { rgb: '0F172A' } },
             bottom: { style: 'medium', color: { rgb: '0F172A' } },
@@ -960,17 +962,17 @@ export default function CalculPaie() {
     }
 
     for (let r = 4; r < 4 + dataRows.length; r++) {
-      for (let c = 0; c <= 17; c++) {
+      for (let c = 0; c <= 18; c++) {
         const cellAddress = XLSX.utils.encode_cell({ r: r, c: c });
         if (ws[cellAddress]) {
-          const isNumCol = (c >= 7 && c <= 12) || c === 14;
+          const isNumCol = (c >= 7 && c <= 13) || c === 15;
           if (isNumCol && typeof ws[cellAddress].v === 'number') {
             ws[cellAddress].z = '#,##0';
           }
           ws[cellAddress].s = {
             font: { name: 'Arial', sz: 9.5, color: { rgb: '1E293B' } },
             fill: { fgColor: { rgb: r % 2 === 0 ? 'FFFFFF' : 'F8FAFC' } },
-            alignment: { horizontal: isNumCol ? 'right' : (c === 15 ? 'center' : 'left'), vertical: 'center' },
+            alignment: { horizontal: isNumCol ? 'right' : (c === 16 ? 'center' : 'left'), vertical: 'center' },
             border: {
               top: { style: 'thin', color: { rgb: 'E2E8F0' } },
               bottom: { style: 'thin', color: { rgb: 'E2E8F0' } },
@@ -978,7 +980,7 @@ export default function CalculPaie() {
               right: { style: 'thin', color: { rgb: 'E2E8F0' } }
             }
           };
-          if (c === 14) {
+          if (c === 15) {
             ws[cellAddress].s.font.bold = true;
             ws[cellAddress].s.font.color = { rgb: '065F46' };
             ws[cellAddress].s.fill = { fgColor: { rgb: 'ECFDF5' } };
@@ -988,16 +990,16 @@ export default function CalculPaie() {
     }
 
     const totalRowIndex = 4 + dataRows.length;
-    for (let c = 0; c <= 17; c++) {
+    for (let c = 0; c <= 18; c++) {
       const cellAddress = XLSX.utils.encode_cell({ r: totalRowIndex, c: c });
       if (ws[cellAddress]) {
-        const isNumCol = (c >= 7 && c <= 12) || c === 14;
+        const isNumCol = (c >= 7 && c <= 13) || c === 15;
         if (isNumCol && typeof ws[cellAddress].v === 'number') {
           ws[cellAddress].z = '#,##0';
         }
         ws[cellAddress].s = {
-          font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: c === 14 ? '065F46' : '0F172A' } },
-          fill: { fgColor: { rgb: c === 14 ? 'D1FAE5' : 'E2E8F0' } },
+          font: { name: 'Arial', sz: 10.5, bold: true, color: { rgb: c === 15 ? '065F46' : '0F172A' } },
+          fill: { fgColor: { rgb: c === 15 ? 'D1FAE5' : 'E2E8F0' } },
           alignment: { horizontal: isNumCol ? 'right' : 'left', vertical: 'center' },
           border: {
             top: { style: 'double', color: { rgb: '475569' } },
@@ -1067,6 +1069,7 @@ export default function CalculPaie() {
         `${p.qualification || '-'}\n${p.site || '-'}`,
         `${formatDate(p.date_pointage || p.date)}\n${getIntervaleSemaine(p.semaine, p.date_pointage || p.date, p.date_debut, p.date_fin)}`,
         fmtPdf(p.salaire_brut),
+        p.heures_sup > 0 ? `+${fmtPdf(p.heures_sup)}` : '-',
         ponctionText,
         p.loyer > 0 ? fmtPdf(p.loyer) : '-',
         fmtPdfSigned(p.epi_remboursement),
@@ -1090,26 +1093,28 @@ export default function CalculPaie() {
       margin: { top: 50, left: 6, right: 6 },
       startY: 50,
       head: [[
-        'Ouvrier', 'Qualif / Site', 'Date & Période', 'Sal. Brut',
+        'Ouvrier', 'Qualif / Site', 'Date & Période', 'Sal. Brut', 'Heures Sup',
         'Ponctions EPI', 'Loyer', 'Remb. EPI',
         'Déd. EPI', 'Net à Payer', 'Transfert Mobile Money'
       ]],
       body: rows,
       columnStyles: {
-        0: { cellWidth: 35, fontStyle: 'bold' },
-        1: { cellWidth: 28 },
-        2: { cellWidth: 34 },
-        3: { halign: 'right', cellWidth: 24 },
-        4: { halign: 'right', cellWidth: 26, textColor: [70, 70, 150] },
-        5: { halign: 'right', cellWidth: 22, textColor: [100, 0, 150] },
-        6: { halign: 'right', cellWidth: 22, textColor: [0, 120, 0] },
-        7: { halign: 'right', cellWidth: 24, fontStyle: 'bold', textColor: [180, 40, 0] },
-        8: { halign: 'right', cellWidth: 26, fontStyle: 'bold', textColor: [0, 130, 60] },
-        9: { cellWidth: 44, fontStyle: 'bold', textColor: [20, 40, 80] }
+        0: { cellWidth: 32, fontStyle: 'bold' },
+        1: { cellWidth: 26 },
+        2: { cellWidth: 30 },
+        3: { halign: 'right', cellWidth: 20 },
+        4: { halign: 'right', cellWidth: 20, textColor: [180, 100, 0] },
+        5: { halign: 'right', cellWidth: 23, textColor: [70, 70, 150] },
+        6: { halign: 'right', cellWidth: 18, textColor: [100, 0, 150] },
+        7: { halign: 'right', cellWidth: 20, textColor: [0, 120, 0] },
+        8: { halign: 'right', cellWidth: 22, fontStyle: 'bold', textColor: [180, 40, 0] },
+        9: { halign: 'right', cellWidth: 24, fontStyle: 'bold', textColor: [0, 130, 60] },
+        10: { cellWidth: 44, fontStyle: 'bold', textColor: [20, 40, 80] }
       },
     });
 
     const totBrut = displayedPaie.reduce((sum, p) => sum + (Number(p.salaire_brut) || 0), 0);
+    const totHS = displayedPaie.reduce((sum, p) => sum + (Number(p.heures_sup) || 0), 0);
     const totPonctionsHebdo = displayedPaie.reduce((sum, p) => sum + (Number(p.ponction) || 0), 0);
     const totDedDepart = displayedPaie.reduce((sum, p) => sum + (Number(p.epi_deduction) || 0), 0);
     const totLoyers = displayedPaie.reduce((sum, p) => sum + (Number(p.loyer) || 0), 0);
@@ -1122,7 +1127,7 @@ export default function CalculPaie() {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(21, 101, 192);
-    doc.text(`Total Salaire Brut : ${fmtPdf(totBrut)}`, 16, y + 9);
+    doc.text(`Total Salaire Brut : ${fmtPdf(totBrut)}${totHS > 0 ? ` | Heures Sup : +${fmtPdf(totHS)}` : ''}`, 16, y + 9);
     doc.setTextColor(180, 60, 0);
     doc.text(`Total Retenues Hebdo EPI : ${fmtPdf(totPonctionsHebdo)}${totDedDepart > 0 ? ` | Déd. Départ : -${fmtPdf(totDedDepart)}` : ''}`, 16, y + 18);
     doc.setTextColor(100, 0, 150);
